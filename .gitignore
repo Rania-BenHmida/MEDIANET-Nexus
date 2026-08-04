@@ -1,0 +1,24 @@
+# --- Backend (Django/Python) ---
+Medianet_NEXUS_Backend/venv/
+Medianet_NEXUS_Backend/**/__pycache__/
+Medianet_NEXUS_Backend/*.pyc
+Medianet_NEXUS_Backend/.env
+Medianet_NEXUS_Backend/db.sqlite3
+Medianet_NEXUS_Backend/staticfiles/
+Medianet_NEXUS_Backend/media/
+Medianet_NEXUS_Backend/.idea/
+
+# --- Frontend (React/TanStack) ---
+Medianet_NEXUS_Frontend/node_modules/
+Medianet_NEXUS_Frontend/dist/
+Medianet_NEXUS_Frontend/.env
+Medianet_NEXUS_Frontend/.output/
+Medianet_NEXUS_Frontend/.vinxi/
+
+# --- Sensitive / large data files ---
+*.pbix
+
+# --- OS / editor junk ---
+.DS_Store
+Thumbs.db
+.vscode/
