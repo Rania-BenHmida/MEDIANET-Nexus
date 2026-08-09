@@ -13,15 +13,14 @@ DEBUG = os.getenv("DEBUG", "True") == "True"
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "nflsnhl4-8000.euw.devtunnels.ms"]
 
 INSTALLED_APPS = [
-    "django.contrib.contenttypes",
-    "django.contrib.auth",
     "rest_framework",
     "corsheaders",
     "deals",
     "dropdowns",
     "projects",
     "Gen_BI",
-    "customers"
+    "customers",
+    "surveys",
 ]
 
 MIDDLEWARE = [
@@ -62,12 +61,34 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         **_parse_db(os.environ["WAREHOUSE_DATABASE_URL"]),
-    }
+    },
+    "surveys": {
+        "ENGINE": "django.db.backends.postgresql",
+        **_parse_db(os.environ["SURVEYS_DATABASE_URL"]),
+    },
 }
+
+DATABASE_ROUTERS = ["config.db_router.SurveysRouter"]
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "UNAUTHENTICATED_USER": None,
 }
+
+# Email — Gmail SMTP with an app password (Google Account → Security →
+# 2-Step Verification → App passwords). Never use your real account
+# password here. See .env for the actual credentials.
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+
+# Used to build the public survey link (FRONTEND_URL/survey/<token>) sent in the email.
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"

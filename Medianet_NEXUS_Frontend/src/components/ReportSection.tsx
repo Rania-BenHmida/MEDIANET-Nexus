@@ -1,22 +1,13 @@
-import { useState } from "react";
+import { useRef } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { PowerBIEmbed } from "./PowerBIEmbed";
+import { PowerBIEmbed, type PowerBIEmbedHandle } from "./PowerBIEmbed";
 import type { EmbedReport } from "@/lib/embeds";
-import { Star, Maximize2 } from "lucide-react";
+import { RefreshCw, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function ReportSection({ reports }: { reports: EmbedReport[] }) {
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const embedRefs = useRef<Record<string, PowerBIEmbedHandle | null>>({});
   if (reports.length === 0) return null;
-
-  const toggleFav = (id: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   return (
     <Tabs defaultValue={reports[0].id} className="w-full">
@@ -40,19 +31,27 @@ export function ReportSection({ reports }: { reports: EmbedReport[] }) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => toggleFav(r.id)}
-                aria-label="Bookmark report"
+                onClick={() => embedRefs.current[r.id]?.refresh()}
+                aria-label="Refresh report"
               >
-                <Star
-                  className={`size-4 ${favorites.has(r.id) ? "fill-warning text-warning" : "text-muted-foreground"}`}
-                />
+                <RefreshCw className="size-4 text-muted-foreground" />
               </Button>
-              <Button variant="ghost" size="sm" aria-label="Expand">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => embedRefs.current[r.id]?.toggleFullscreen()}
+                aria-label="Expand"
+              >
                 <Maximize2 className="size-4 text-muted-foreground" />
               </Button>
             </div>
           </div>
-          <PowerBIEmbed report={r} />
+          <PowerBIEmbed
+            ref={(el) => {
+              embedRefs.current[r.id] = el;
+            }}
+            report={r}
+          />
         </TabsContent>
       ))}
     </Tabs>

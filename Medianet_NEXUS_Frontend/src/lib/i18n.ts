@@ -49,14 +49,15 @@ const en = {
     },
   },
   projects: {
-    eyebrow: "Operations",
-    title: "Project & Task Tracking",
-    description: "Live operational visibility — milestones, throughput, delays.",
+  eyebrow: "Operations",
+  title: "Project & Task Tracking",
+  description: "Live operational visibility — milestones, throughput, delays.",
     kpi: {
       active: "Active Projects",
-      onSchedule: "On Schedule",
-      atRisk: "At Risk",
-      delayed: "Delayed",
+      completed: "Completed",
+      productivity: "Team Productivity",
+      duration: "Avg. Duration",
+      tasksPerProject: "Tasks / Project",
     },
   },
   customers: {
@@ -176,14 +177,15 @@ const fr: typeof en = {
     },
   },
   projects: {
-    eyebrow: "Opérations",
-    title: "Suivi des projets & tâches",
-    description: "Visibilité opérationnelle en direct — jalons, débit, retards.",
+  eyebrow: "Opérations",
+  title: "Suivi des projets & tâches",
+  description: "Visibilité opérationnelle en direct — jalons, débit, retards.",
     kpi: {
       active: "Projets actifs",
-      onSchedule: "Dans les temps",
-      atRisk: "À risque",
-      delayed: "En retard",
+      completed: "Terminés",
+      productivity: "Productivité de l'équipe",
+      duration: "Durée moy.",
+      tasksPerProject: "Tâches / Projet",
     },
   },
   customers: {

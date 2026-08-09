@@ -57,6 +57,7 @@ from psycopg2.extras import RealDictCursor
 from urllib.parse import urlparse
 
 from db import get_warehouse_conn, release_warehouse_conn, get_staging_conn, release_staging_conn
+from surveys.services import notify
 
 # Staging schema for pending tasks — matches the "Projects" schema shown in
 # your SA_Log screenshot. Adjust if the real schema name differs.
@@ -236,6 +237,58 @@ def _get_project_meta_map(project_codes: set[str]) -> dict[str, dict]:
         }
     return result
 
+# ── Add to projects/services.py ─────────────────────────────────────────────
+
+
+def get_projects_stats() -> dict:
+    """
+    GET /api/projects/stats/ — KPI cards for the Projects page.
+
+    Status values confirmed live from Dim_Project.status: 'active',
+    'completed', 'on_hold' (lowercase snake_case).
+    """
+    conn = get_warehouse_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                        SELECT
+                            COUNT(*)                                       AS total_projects,
+                            COUNT(*) FILTER (WHERE "status" = 'completed') AS completed_count,
+                            COUNT(*) FILTER (WHERE "status" = 'active')    AS active_count,
+                            AVG(
+                                    EXTRACT(EPOCH FROM ("end_date"::timestamp - "start_date"::timestamp)) / 86400.0
+                            ) FILTER (
+                                WHERE "start_date" IS NOT NULL AND "end_date" IS NOT NULL
+                            )                                               AS avg_duration_days
+                        FROM public."Dim_Project"
+                        """)
+            proj_row = cur.fetchone()
+
+            cur.execute("""
+                        SELECT
+                            COUNT(DISTINCT "ID_Task")    AS total_tasks,
+                            COUNT(DISTINCT "ID_Project") AS projects_with_tasks
+                        FROM public."Fact_Log"
+                        """)
+            task_row = cur.fetchone()
+
+            total     = int(proj_row["total_projects"])
+            completed = int(proj_row["completed_count"])
+            active    = int(proj_row["active_count"])
+            avg_dur   = proj_row["avg_duration_days"]  # None-checked below, not cast blindly
+
+            total_tasks         = int(task_row["total_tasks"])
+            projects_with_tasks = int(task_row["projects_with_tasks"])
+
+            return {
+                "activeProjects":      active,
+                "completedPct":        round(100 * completed / total, 1) if total else 0,
+                "teamProductivityPct": round(100 * (completed + active) / total, 1) if total else 0,
+                "avgDurationDays":     round(float(avg_dur)) if avg_dur is not None else None,
+                "tasksPerProject":     round(total_tasks / projects_with_tasks) if projects_with_tasks else 0,
+            }
+    finally:
+        release_warehouse_conn(conn)
 # ── Project (Dim_Project) — direct warehouse CRUD, no staging ───────────────
 
 def list_projects(filters: dict | None = None) -> list[dict]:
@@ -388,6 +441,16 @@ def create_project(data: dict) -> dict:
             raise
         finally:
             release_staging_conn(staging)
+
+    notify(
+        event_type="project_created",
+        title=f"New project — {project_name}",
+        body=(f"Project code {project_code} created"
+              + (f" for {data.get('team_name')}" if data.get('team_name') else "")
+              + "."),
+        code_company=meta.get("company_code") or "",
+        related_type="project", related_id=str(new_id),
+    )
 
     return get_project(new_id)
 
@@ -588,6 +651,14 @@ def create_pending_task(data: dict) -> dict:
                 False,
             ))
         conn.commit()
+
+        notify(
+            event_type="task_created",
+            title=f"New task — {data['name']}",
+            body=f"Added to {data['project_name']}.",
+            related_type="task", related_id=task_id,
+        )
+
         return {"success": True, "id": task_id}
     except Exception:
         conn.rollback()

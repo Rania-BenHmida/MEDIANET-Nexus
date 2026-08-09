@@ -1,20 +1,41 @@
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { AIPanel } from "./AIPanel";
+import { AiDock } from "./AiDock";
+import { AiAssistantProvider, useAiAssistant } from "@/hooks/use-ai-assistant";
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const [aiOpen, setAiOpen] = useState(false);
+function AppShellInner({ children }: { children: ReactNode }) {
+  const { open, pinned, openAssistant } = useAiAssistant();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // The /ai/GenBI route already renders the full chat inline — skip the
+  // redundant docked/floating panel while the user is on that page.
+  const onAiPage = pathname === "/ai/GenBI";
+
+  const showDock = open && pinned && !onAiPage;
+  const showOverlay = open && !pinned && !onAiPage;
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
-      <AppSidebar onOpenAi={() => setAiOpen(true)} />
+    <div className="h-screen overflow-hidden flex bg-background text-foreground">
+      <AppSidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar onOpenAi={() => setAiOpen(true)} />
+        <TopBar onOpenAi={openAssistant} hideAiButton={onAiPage} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
-      <AIPanel open={aiOpen} onOpenChange={setAiOpen} />
+      {/* Docked: a real column in this flex row, sidebar + main sit beside it. */}
+      {showDock && <AiDock />}
+      {/* Floating: an overlay Sheet that covers content instead of sharing space. */}
+      {showOverlay && <AIPanel />}
     </div>
+  );
+}
+
+export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <AiAssistantProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </AiAssistantProvider>
   );
 }
 

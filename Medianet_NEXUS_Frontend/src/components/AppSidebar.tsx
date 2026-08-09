@@ -18,6 +18,7 @@ import {
   ListTodo,
   ListPlus,
   RefreshCw,
+  ClipboardList,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
@@ -76,6 +77,16 @@ const NAV: NavItem[] = [
     ],
   },
   {
+    to: "/surveys",
+    labelKey: "Surveys",   // or just: label: "Surveys" — matching whichever pattern your other entries use
+    icon: ClipboardList,
+    section: "surveys",
+    children: [
+      { to: "/surveys",           label: "Templates", icon: List },
+      { to: "/surveys/contacts",  label: "Client Feedback",   icon: Users },   // <- was "Contacts"
+    ],
+  },
+  {
     to: "/deals",
     labelKey: "nav.deals",
     icon: TrendingUp,
@@ -96,7 +107,7 @@ const SYSTEM: NavItem[] = [
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function AppSidebar({ onOpenAi }: { onOpenAi: () => void }) {
+export function AppSidebar() {
   const { profile, roles, signOut, user } = useAuth();
   const { t } = useTranslation();
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -142,24 +153,23 @@ export function AppSidebar({ onOpenAi }: { onOpenAi: () => void }) {
 
   return (
     <aside className="sticky top-0 h-screen w-64 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
-      {/* Logo */}
+      {/* Logo — fixed height so swapping mark <-> wordmark on hover never
+          reflows the nav items below; both variants just center inside it. */}
       <div
-        className="p-5 flex items-center gap-2.5 cursor-pointer"
+        className="h-20 px-5 flex items-center gap-2.5 cursor-pointer shrink-0"
         onMouseEnter={() => setIsLogoHovered(true)}
         onMouseLeave={() => setIsLogoHovered(false)}
       >
         {!isLogoHovered ? (
           <>
-            <div className="size-8 rounded-lg bg-primary grid place-items-center text-primary-foreground font-bold tracking-tight">
-              <img src="data/images/ODF.png" alt="ODF" className="w-5 h-5 object-contain" />
-            </div>
+            <img src="data/images/logo-mark.png" alt="Medianet" className="h-8 w-auto object-contain" />
             <div className="flex flex-col leading-tight">
               <span className="font-semibold tracking-tight text-base">MEDIANET</span>
               <span className="text-[10px] text-sidebar-muted uppercase tracking-widest">Nexus</span>
             </div>
           </>
         ) : (
-          <img src="data/images/logo-medianet.png" alt="ODF" className="h-12 w-auto object-contain" />
+          <img src="data/images/logo-wordmark.png" alt="Medianet Nexus" className="h-14 w-auto object-contain" />
         )}
       </div>
 
@@ -282,14 +292,19 @@ export function AppSidebar({ onOpenAi }: { onOpenAi: () => void }) {
           <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-muted">
             {t("nav.intelligence")}
           </p>
-          <button
-            onClick={onOpenAi}
-            className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-active/50 transition-colors"
+          <Link
+            to="/ai/GenBI"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors",
+              isActive("/ai/GenBI")
+                ? "bg-sidebar-active text-sidebar-foreground font-medium"
+                : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-active/50",
+            )}
           >
             <Sparkles className="size-4 shrink-0" />
             <span>{t("nav.aiAssistant")}</span>
             <span className="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/20 text-primary">BETA</span>
-          </button>
+          </Link>
         </div>
       </nav>
 

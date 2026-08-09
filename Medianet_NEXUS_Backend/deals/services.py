@@ -4,6 +4,7 @@ from psycopg2.extras import RealDictCursor
 from urllib.parse import urlparse
 
 from db import get_warehouse_conn, release_warehouse_conn, get_staging_conn, release_staging_conn
+from surveys.services import notify
 
 
 # ── Date-key helpers ──────────────────────────────────────────────────────────
@@ -374,7 +375,32 @@ def update_open_deal(opportunity_id: int, data: dict) -> dict:
                 WHERE "ID_Opportunity" = %s
             """, values + [opportunity_id])
         conn.commit()
-        return get_deal(opportunity_id)
+
+        updated = get_deal(opportunity_id)
+
+        # Only fires on the edit that actually closes the deal — this whole
+        # function is guarded to previously-Open deals only (see the
+        # Stage_Group check above), so any resulting Closed stage here is a
+        # genuine open -> closed transition, not a re-save.
+        if "stage_name" in provided and updated and updated.get("is_closed"):
+            if updated.get("is_won"):
+                notify(
+                    event_type="deal_won",
+                    title=f"Deal won — {updated.get('company_name') or 'Unknown company'}",
+                    body=(f"{updated.get('plan_name') or 'Deal'} marked Won"
+                          + (f" ({updated['close_value']:,.0f} DT)" if updated.get('close_value') else "")
+                          + "."),
+                    related_type="deal", related_id=str(opportunity_id),
+                )
+            else:
+                notify(
+                    event_type="deal_lost",
+                    title=f"Deal lost — {updated.get('company_name') or 'Unknown company'}",
+                    body=f"{updated.get('plan_name') or 'Deal'} marked Lost.",
+                    related_type="deal", related_id=str(opportunity_id),
+                )
+
+        return updated
     except Exception as e:
         conn.rollback()
         raise e
@@ -426,6 +452,14 @@ def create_pending_deal(data: dict) -> dict:
                             int(data["close_value"]) if data.get("close_value") else None,
                         ))
         conn.commit()
+
+        notify(
+            event_type="deal_created",
+            title=f"New deal — {data['company_name']}",
+            body=f"{data['plan_name']} added to the pipeline by {data['agent_name']}.",
+            related_type="deal", related_id=opportunity_id,
+        )
+
         return {"success": True, "id": opportunity_id}
     except Exception as e:
         conn.rollback()

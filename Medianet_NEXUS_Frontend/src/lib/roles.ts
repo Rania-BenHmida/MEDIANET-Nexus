@@ -23,7 +23,8 @@ export type SectionKey =
   | "customers"
   | "deals"
   | "roles"
-  | "talend";
+  | "talend"
+  | "surveys";
 
 /** Which roles are permitted to view each section. */
 export const SECTION_ACCESS: Record<SectionKey, AppRole[]> = {
@@ -35,6 +36,10 @@ export const SECTION_ACCESS: Record<SectionKey, AppRole[]> = {
   roles: ["superadmin", "it_specialist"],
   // Talend master-job refresh control — same tier as role assignment.
   talend: ["superadmin", "it_specialist"],
+  // Survey agent — Customer Success Manager's own tool. superadmin keeps
+  // access as the union role (business + system controls); everyone else,
+  // including plain admin, is deliberately excluded.
+  surveys: ["superadmin", "customer_success"],
 };
 
 export function canAccess(section: SectionKey, roles: AppRole[]): boolean {

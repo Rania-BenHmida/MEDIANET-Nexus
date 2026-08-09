@@ -4,11 +4,12 @@ import {
 } from "@/lib/api";
 
 export const projectKeys = {
-  all:    ["projects"]                         as const,
-  lists:  ()                   => [...projectKeys.all, "list"]   as const,
-  list:   (f?: ProjectFilters) => [...projectKeys.lists(), f]    as const,
-  detail: (id: number)         => [...projectKeys.all, "detail", id] as const,
-  statuses: ()                 => [...projectKeys.all, "statuses"] as const,
+  all:      ["projects"]                       as const,
+  lists:    ()                   => [...projectKeys.all, "list"]   as const,
+  list:     (f?: ProjectFilters) => [...projectKeys.lists(), f]    as const,
+  detail:   (id: number)         => [...projectKeys.all, "detail", id] as const,
+  statuses: ()                   => [...projectKeys.all, "statuses"] as const,
+  stats:    ["projects", "stats"] as const,
 };
 
 export const taskKeys = {
@@ -19,6 +20,13 @@ export const taskKeys = {
 };
 
 // ── Projects ──────────────────────────────────────────────────────────────────
+
+export function useProjectsStats() {
+  return useQuery({
+    queryKey: projectKeys.stats,
+    queryFn:  projectsApi.stats,
+  });
+}
 
 export function useProjects(filters?: ProjectFilters) {
   return useQuery({ queryKey: projectKeys.list(filters), queryFn: () => projectsApi.list(filters) });
@@ -42,11 +50,16 @@ export function useProjectStatuses() {
   });
 }
 
+function invalidateAllProjectLists(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+  queryClient.invalidateQueries({ queryKey: projectKeys.stats });
+}
+
 export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: NewProject) => projectsApi.create(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.lists() }),
+    onSuccess: () => invalidateAllProjectLists(queryClient),
   });
 }
 
@@ -54,7 +67,7 @@ export function useUpdateProject() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (vars: { id: number; data: Partial<NewProject> }) => projectsApi.update(vars.id, vars.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.lists() }),
+    onSuccess: () => invalidateAllProjectLists(queryClient),
   });
 }
 

@@ -47,11 +47,11 @@ function AdminPage() {
   };
 
   useEffect(() => {
-  if (!canAccess("roles", roles)) return;
-  void refresh();
-}, [roles]);
+    if (!canAccess("roles", roles)) return;
+    void refresh();
+  }, [roles]);
 
-if (!canAccess("roles", roles)) return <Navigate to="/unauthorized" />;
+  if (!canAccess("roles", roles)) return <Navigate to="/unauthorized" />;
 
   const handleAssign = async (userId: string) => {
     const role = selectedRole[userId];

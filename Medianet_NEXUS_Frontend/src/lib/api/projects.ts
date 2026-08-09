@@ -1,5 +1,13 @@
 import { get, post, patch, del } from "./client";
 
+export type ProjectsStats = {
+  activeProjects: number;
+  completedPct: number;
+  teamProductivityPct: number;
+  avgDurationDays: number | null;
+  tasksPerProject: number;
+};
+
 export type Project = {
   id: number;
   project_code: string;
@@ -93,6 +101,9 @@ function buildQuery(params?: Record<string, unknown>): string {
 }
 
 export const projectsApi = {
+  // Stats card
+  stats: () => get<ProjectsStats>("/projects/stats/"),
+
   list:   (filters?: ProjectFilters) => get<Project[]>(`/projects/${buildQuery(filters)}`),
   get:    (id: number)               => get<Project>(`/projects/${id}/`),
   create: (data: NewProject)         => post<Project>("/projects/", data),

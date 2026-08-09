@@ -22,6 +22,7 @@ from .services import (
     list_projects, get_project, create_project, update_project,
     list_tasks, get_task, create_pending_task, update_task,
     delete_pending_task, delete_historical_task,list_project_statuses,
+    get_projects_stats,
 )
 
 @api_view(["GET"])
@@ -31,6 +32,14 @@ def project_statuses(request):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@api_view(["GET"])
+def project_stats(request):
+    """GET /api/projects/stats/ — KPI cards for the Projects page."""
+    try:
+        return Response(get_projects_stats())
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # ── Projects ──────────────────────────────────────────────────────────────────
 

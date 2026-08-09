@@ -9,7 +9,7 @@ import { KpiCard } from "@/components/KpiCard";
 import { useCustomerProfile } from "@/hooks/use-customers";
 import {
   Loader2, Building2, MapPin, Users, Calendar, Heart, TrendingUp,
-  MessageSquare, Sparkles, Inbox,
+  Sparkles, Inbox,
 } from "lucide-react";
 
 const TIER_TONE: Record<string, string> = {
@@ -136,11 +136,7 @@ function CustomerDetailPage() {
         Weights are provisional (not yet empirically calibrated against real churn outcomes) — shown as hypotheses, not certainty.
       </p>
 
-      {/* ── 3. Voix du client — placeholder ─────────────────────── */}
-      <ComingSoon icon={MessageSquare} title="Voice of the customer"
-        note="NPS, CSAT, and verbatims will appear here once the satisfaction survey agent is live." />
-
-      {/* ── 4. Support ──────────────────────────────────────────── */}
+      {/* ── 3. Support ──────────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl p-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Support</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
@@ -171,9 +167,9 @@ function CustomerDetailPage() {
         )}
       </div>
 
-      {/* ── 6. Actions recommandées — placeholder ──────────────── */}
+      {/* ── 5. Actions recommandées — placeholder ──────────────── */}
       <ComingSoon icon={Sparkles} title="Recommended actions"
-        note="Upsell nudges and retention triggers will appear here once the rules engine is built." />
+        note="A cross-client rules engine (beyond per-survey AI recommendations) will appear here later." />
     </div>
   );
 }

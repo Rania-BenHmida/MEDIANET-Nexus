@@ -13,20 +13,24 @@ import { Route as UnauthorizedRouteImport } from './routes/unauthorized'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SurveyTokenRouteImport } from './routes/survey/$token'
 import { Route as AuthenticatedTalendRouteImport } from './routes/_authenticated/talend'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedSurveysIndexRouteImport } from './routes/_authenticated/surveys/index'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects/index'
 import { Route as AuthenticatedDealsIndexRouteImport } from './routes/_authenticated/deals/index'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AuthenticatedSurveysContactsRouteImport } from './routes/_authenticated/surveys/contacts'
 import { Route as AuthenticatedProjectsListRouteImport } from './routes/_authenticated/projects/list'
 import { Route as AuthenticatedProjectsCreateRouteImport } from './routes/_authenticated/projects/create'
 import { Route as AuthenticatedDealsListRouteImport } from './routes/_authenticated/deals/list'
 import { Route as AuthenticatedDealsCreateRouteImport } from './routes/_authenticated/deals/create'
 import { Route as AuthenticatedCustomersListRouteImport } from './routes/_authenticated/customers/list'
 import { Route as AuthenticatedCustomersCompanyIdRouteImport } from './routes/_authenticated/customers/$companyId'
+import { Route as AuthenticatedAiGenBIRouteImport } from './routes/_authenticated/ai/GenBI'
 import { Route as AuthenticatedProjectsTasksIndexRouteImport } from './routes/_authenticated/projects/tasks/index'
 import { Route as AuthenticatedProjectsTasksCreateRouteImport } from './routes/_authenticated/projects/tasks/create'
 
@@ -49,6 +53,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SurveyTokenRoute = SurveyTokenRouteImport.update({
+  id: '/survey/$token',
+  path: '/survey/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedTalendRoute = AuthenticatedTalendRouteImport.update({
   id: '/talend',
   path: '/talend',
@@ -69,6 +78,12 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSurveysIndexRoute =
+  AuthenticatedSurveysIndexRouteImport.update({
+    id: '/surveys/',
+    path: '/surveys/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedProjectsIndexRoute =
   AuthenticatedProjectsIndexRouteImport.update({
     id: '/projects/',
@@ -91,6 +106,12 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSurveysContactsRoute =
+  AuthenticatedSurveysContactsRouteImport.update({
+    id: '/surveys/contacts',
+    path: '/surveys/contacts',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedProjectsListRoute =
   AuthenticatedProjectsListRouteImport.update({
     id: '/projects/list',
@@ -126,6 +147,11 @@ const AuthenticatedCustomersCompanyIdRoute =
     path: '/customers/$companyId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAiGenBIRoute = AuthenticatedAiGenBIRouteImport.update({
+  id: '/ai/GenBI',
+  path: '/ai/GenBI',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedProjectsTasksIndexRoute =
   AuthenticatedProjectsTasksIndexRouteImport.update({
     id: '/projects/tasks/',
@@ -147,16 +173,20 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/talend': typeof AuthenticatedTalendRoute
+  '/survey/$token': typeof SurveyTokenRoute
+  '/ai/GenBI': typeof AuthenticatedAiGenBIRoute
   '/customers/$companyId': typeof AuthenticatedCustomersCompanyIdRoute
   '/customers/list': typeof AuthenticatedCustomersListRoute
   '/deals/create': typeof AuthenticatedDealsCreateRoute
   '/deals/list': typeof AuthenticatedDealsListRoute
   '/projects/create': typeof AuthenticatedProjectsCreateRoute
   '/projects/list': typeof AuthenticatedProjectsListRoute
+  '/surveys/contacts': typeof AuthenticatedSurveysContactsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/deals/': typeof AuthenticatedDealsIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
+  '/surveys/': typeof AuthenticatedSurveysIndexRoute
   '/projects/tasks/create': typeof AuthenticatedProjectsTasksCreateRoute
   '/projects/tasks/': typeof AuthenticatedProjectsTasksIndexRoute
 }
@@ -168,16 +198,20 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/talend': typeof AuthenticatedTalendRoute
+  '/survey/$token': typeof SurveyTokenRoute
+  '/ai/GenBI': typeof AuthenticatedAiGenBIRoute
   '/customers/$companyId': typeof AuthenticatedCustomersCompanyIdRoute
   '/customers/list': typeof AuthenticatedCustomersListRoute
   '/deals/create': typeof AuthenticatedDealsCreateRoute
   '/deals/list': typeof AuthenticatedDealsListRoute
   '/projects/create': typeof AuthenticatedProjectsCreateRoute
   '/projects/list': typeof AuthenticatedProjectsListRoute
+  '/surveys/contacts': typeof AuthenticatedSurveysContactsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/deals': typeof AuthenticatedDealsIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
+  '/surveys': typeof AuthenticatedSurveysIndexRoute
   '/projects/tasks/create': typeof AuthenticatedProjectsTasksCreateRoute
   '/projects/tasks': typeof AuthenticatedProjectsTasksIndexRoute
 }
@@ -191,16 +225,20 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/talend': typeof AuthenticatedTalendRoute
+  '/survey/$token': typeof SurveyTokenRoute
+  '/_authenticated/ai/GenBI': typeof AuthenticatedAiGenBIRoute
   '/_authenticated/customers/$companyId': typeof AuthenticatedCustomersCompanyIdRoute
   '/_authenticated/customers/list': typeof AuthenticatedCustomersListRoute
   '/_authenticated/deals/create': typeof AuthenticatedDealsCreateRoute
   '/_authenticated/deals/list': typeof AuthenticatedDealsListRoute
   '/_authenticated/projects/create': typeof AuthenticatedProjectsCreateRoute
   '/_authenticated/projects/list': typeof AuthenticatedProjectsListRoute
+  '/_authenticated/surveys/contacts': typeof AuthenticatedSurveysContactsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/deals/': typeof AuthenticatedDealsIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
+  '/_authenticated/surveys/': typeof AuthenticatedSurveysIndexRoute
   '/_authenticated/projects/tasks/create': typeof AuthenticatedProjectsTasksCreateRoute
   '/_authenticated/projects/tasks/': typeof AuthenticatedProjectsTasksIndexRoute
 }
@@ -214,16 +252,20 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/settings'
     | '/talend'
+    | '/survey/$token'
+    | '/ai/GenBI'
     | '/customers/$companyId'
     | '/customers/list'
     | '/deals/create'
     | '/deals/list'
     | '/projects/create'
     | '/projects/list'
+    | '/surveys/contacts'
     | '/api/auth/$'
     | '/customers/'
     | '/deals/'
     | '/projects/'
+    | '/surveys/'
     | '/projects/tasks/create'
     | '/projects/tasks/'
   fileRoutesByTo: FileRoutesByTo
@@ -235,16 +277,20 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/settings'
     | '/talend'
+    | '/survey/$token'
+    | '/ai/GenBI'
     | '/customers/$companyId'
     | '/customers/list'
     | '/deals/create'
     | '/deals/list'
     | '/projects/create'
     | '/projects/list'
+    | '/surveys/contacts'
     | '/api/auth/$'
     | '/customers'
     | '/deals'
     | '/projects'
+    | '/surveys'
     | '/projects/tasks/create'
     | '/projects/tasks'
   id:
@@ -257,16 +303,20 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/settings'
     | '/_authenticated/talend'
+    | '/survey/$token'
+    | '/_authenticated/ai/GenBI'
     | '/_authenticated/customers/$companyId'
     | '/_authenticated/customers/list'
     | '/_authenticated/deals/create'
     | '/_authenticated/deals/list'
     | '/_authenticated/projects/create'
     | '/_authenticated/projects/list'
+    | '/_authenticated/surveys/contacts'
     | '/api/auth/$'
     | '/_authenticated/customers/'
     | '/_authenticated/deals/'
     | '/_authenticated/projects/'
+    | '/_authenticated/surveys/'
     | '/_authenticated/projects/tasks/create'
     | '/_authenticated/projects/tasks/'
   fileRoutesById: FileRoutesById
@@ -276,6 +326,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   UnauthorizedRoute: typeof UnauthorizedRoute
+  SurveyTokenRoute: typeof SurveyTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -309,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/survey/$token': {
+      id: '/survey/$token'
+      path: '/survey/$token'
+      fullPath: '/survey/$token'
+      preLoaderRoute: typeof SurveyTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/talend': {
       id: '/_authenticated/talend'
       path: '/talend'
@@ -335,6 +393,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/surveys/': {
+      id: '/_authenticated/surveys/'
+      path: '/surveys'
+      fullPath: '/surveys/'
+      preLoaderRoute: typeof AuthenticatedSurveysIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/projects/': {
@@ -364,6 +429,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/surveys/contacts': {
+      id: '/_authenticated/surveys/contacts'
+      path: '/surveys/contacts'
+      fullPath: '/surveys/contacts'
+      preLoaderRoute: typeof AuthenticatedSurveysContactsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/projects/list': {
       id: '/_authenticated/projects/list'
@@ -407,6 +479,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersCompanyIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/ai/GenBI': {
+      id: '/_authenticated/ai/GenBI'
+      path: '/ai/GenBI'
+      fullPath: '/ai/GenBI'
+      preLoaderRoute: typeof AuthenticatedAiGenBIRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/projects/tasks/': {
       id: '/_authenticated/projects/tasks/'
       path: '/projects/tasks'
@@ -429,15 +508,18 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTalendRoute: typeof AuthenticatedTalendRoute
+  AuthenticatedAiGenBIRoute: typeof AuthenticatedAiGenBIRoute
   AuthenticatedCustomersCompanyIdRoute: typeof AuthenticatedCustomersCompanyIdRoute
   AuthenticatedCustomersListRoute: typeof AuthenticatedCustomersListRoute
   AuthenticatedDealsCreateRoute: typeof AuthenticatedDealsCreateRoute
   AuthenticatedDealsListRoute: typeof AuthenticatedDealsListRoute
   AuthenticatedProjectsCreateRoute: typeof AuthenticatedProjectsCreateRoute
   AuthenticatedProjectsListRoute: typeof AuthenticatedProjectsListRoute
+  AuthenticatedSurveysContactsRoute: typeof AuthenticatedSurveysContactsRoute
   AuthenticatedCustomersIndexRoute: typeof AuthenticatedCustomersIndexRoute
   AuthenticatedDealsIndexRoute: typeof AuthenticatedDealsIndexRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
+  AuthenticatedSurveysIndexRoute: typeof AuthenticatedSurveysIndexRoute
   AuthenticatedProjectsTasksCreateRoute: typeof AuthenticatedProjectsTasksCreateRoute
   AuthenticatedProjectsTasksIndexRoute: typeof AuthenticatedProjectsTasksIndexRoute
 }
@@ -447,15 +529,18 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTalendRoute: AuthenticatedTalendRoute,
+  AuthenticatedAiGenBIRoute: AuthenticatedAiGenBIRoute,
   AuthenticatedCustomersCompanyIdRoute: AuthenticatedCustomersCompanyIdRoute,
   AuthenticatedCustomersListRoute: AuthenticatedCustomersListRoute,
   AuthenticatedDealsCreateRoute: AuthenticatedDealsCreateRoute,
   AuthenticatedDealsListRoute: AuthenticatedDealsListRoute,
   AuthenticatedProjectsCreateRoute: AuthenticatedProjectsCreateRoute,
   AuthenticatedProjectsListRoute: AuthenticatedProjectsListRoute,
+  AuthenticatedSurveysContactsRoute: AuthenticatedSurveysContactsRoute,
   AuthenticatedCustomersIndexRoute: AuthenticatedCustomersIndexRoute,
   AuthenticatedDealsIndexRoute: AuthenticatedDealsIndexRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
+  AuthenticatedSurveysIndexRoute: AuthenticatedSurveysIndexRoute,
   AuthenticatedProjectsTasksCreateRoute: AuthenticatedProjectsTasksCreateRoute,
   AuthenticatedProjectsTasksIndexRoute: AuthenticatedProjectsTasksIndexRoute,
 }
@@ -469,6 +554,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   UnauthorizedRoute: UnauthorizedRoute,
+  SurveyTokenRoute: SurveyTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

@@ -72,8 +72,8 @@ function LoginPage() {
             M
           </div>
           <div className="leading-tight">
-            <p className="font-semibold">Medianet</p>
-            <p className="text-[10px] text-sidebar-muted uppercase tracking-widest">Intelligence</p>
+            <p className="font-semibold">MEDIANET</p>
+            <p className="text-[10px] text-sidebar-muted uppercase tracking-widest">Nexus</p>
           </div>
         </div>
 
@@ -95,7 +95,7 @@ function LoginPage() {
           <span className="size-1 rounded-full bg-sidebar-muted" />
           <span>Customer 360°</span>
           <span className="size-1 rounded-full bg-sidebar-muted" />
-          <span>Deals & CLV</span>
+          <span>Deals & CLTV</span>
         </div>
       </div>
 
@@ -108,8 +108,8 @@ function LoginPage() {
             </h2>
             <p className="text-sm text-muted-foreground">
               {mode === "signin"
-                ? "Sign in to access your intelligence portal."
-                : "Get started with Medianet Intelligence."}
+                ? "Sign in to access your Customer Success portal."
+                : "Get started with MEDIANET Nexus."}
             </p>
           </div>
 

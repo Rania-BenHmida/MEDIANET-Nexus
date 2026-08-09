@@ -2,6 +2,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Stats dashboard card
+    path("stats/", views.project_stats, name="project-stats"),
+
     # Projects (Dim_Project — direct warehouse CRUD)
     path("statuses/", views.project_statuses, name="project-statuses"),
     path("",     views.projects_collection, name="projects-collection"),
