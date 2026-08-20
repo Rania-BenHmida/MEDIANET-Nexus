@@ -5,3 +5,5 @@ export * from "./customers";
 export * from "./genbi";
 export * from "./projects";
 export * from "./surveys";
+export * from "./etl";
+export * from "./dashboard";

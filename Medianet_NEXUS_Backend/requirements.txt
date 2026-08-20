@@ -9,3 +9,7 @@ sqlglot>=25.0.0        # SQL validation (AST parsing)
 # LLM providers — chain is Groq -> Mistral (Ollama dropped).
 groq>=0.11.0           # primary chat + Whisper speech-to-text
 mistralai==1.9.11      # fallback chat
+
+reportlab==5.0.0
+
+APScheduler>=3.10,<4.0   # in-process cron for the every-2-days Talend refresh

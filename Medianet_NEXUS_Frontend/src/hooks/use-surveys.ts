@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { surveysApi, type NewContactPayload, type SurveyAnswer } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
 
 export const surveyKeys = {
   all:      ["surveys"] as const,
@@ -25,6 +26,56 @@ export function useSurveyTemplate(templateId: number | null) {
     queryKey: surveyKeys.template(templateId ?? -1),
     queryFn:  () => surveysApi.getTemplate(templateId as number),
     enabled:  templateId !== null && templateId > 0,
+  });
+}
+
+export function useCompaniesWithSubs() {
+  return useQuery({
+    queryKey: [...surveyKeys.all, "companies-with-subs"],
+    queryFn:  () => surveysApi.listCompaniesWithSubs(),
+  });
+}
+
+export function usePrepareSurvey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params: { codeCompany: string; regenerate?: boolean }) =>
+      surveysApi.prepareSurvey(params.codeCompany, params.regenerate ?? false),
+    onSuccess: (data) => {
+      queryClient.setQueryData(surveyKeys.template(data.id), data);
+    },
+  });
+}
+
+export function usePrepareAiQuestions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (codeCompany: string) => surveysApi.prepareAiQuestions(codeCompany),
+    onSuccess: (data) => {
+      queryClient.setQueryData(surveyKeys.template(data.id), data);
+    },
+  });
+}
+
+export function useUpdateQuestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params: { questionId: number; templateId: number; payload: Parameters<typeof surveysApi.updateQuestion>[1] }) =>
+      surveysApi.updateQuestion(params.questionId, params.payload),
+    onSuccess: (_data, params) => {
+      queryClient.invalidateQueries({ queryKey: surveyKeys.template(params.templateId) });
+    },
+  });
+}
+
+export function useDeleteQuestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params: { questionId: number; templateId: number }) =>
+      surveysApi.deleteQuestion(params.questionId),
+    onSuccess: (_data, params) => {
+      queryClient.invalidateQueries({ queryKey: surveyKeys.template(params.templateId) });
+    },
   });
 }
 
@@ -81,9 +132,11 @@ export function useDeleteContact(codeCompany: string) {
 
 export function useSendSurvey(codeCompany: string) {
   const queryClient = useQueryClient();
+  const { user } = useAuth(); // NOTE: assumes `user.email` — adjust if your
+  // Better Auth session shape names this field differently.
   return useMutation({
     mutationFn: (payload: { template_id: number; contact_id: number; expires_in_days?: number }) =>
-      surveysApi.sendSurvey(payload),
+      surveysApi.sendSurvey({ ...payload, sent_by_email: user?.email ?? "" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: surveyKeys.contacts(codeCompany) });
       queryClient.invalidateQueries({ queryKey: surveyKeys.companySurveys(codeCompany) });
@@ -109,10 +162,22 @@ export function useSurveyDetail(surveyId: number | null) {
   });
 }
 
-export function useRunSurveyVerdict(codeCompany: string) {
+export function useDeleteSurvey(codeCompany: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (surveyId: number) => surveysApi.runSurveyVerdict(surveyId),
+    mutationFn: (surveyId: number) => surveysApi.deleteSurvey(surveyId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: surveyKeys.companySurveys(codeCompany) });
+      queryClient.invalidateQueries({ queryKey: [...surveyKeys.all, "overview"] });
+    },
+  });
+}
+
+export function useRunSurveyVerdict(codeCompany: string) {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: (surveyId: number) => surveysApi.runSurveyVerdict(surveyId, user?.email),
     onSuccess: (_data, surveyId) => {
       queryClient.invalidateQueries({ queryKey: surveyKeys.companySurveys(codeCompany) });
       queryClient.invalidateQueries({ queryKey: surveyKeys.survey(surveyId) });
@@ -124,6 +189,13 @@ export function useCompaniesOverview() {
   return useQuery({
     queryKey: [...surveyKeys.all, "overview"],
     queryFn:  () => surveysApi.listCompaniesOverview(),
+  });
+}
+
+export function useCleanupRuns(limit = 50) {
+  return useQuery({
+    queryKey: [...surveyKeys.all, "cleanup-runs", limit],
+    queryFn:  () => surveysApi.listCleanupRuns(limit),
   });
 }
 

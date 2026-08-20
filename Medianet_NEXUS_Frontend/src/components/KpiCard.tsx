@@ -13,6 +13,8 @@ export function KpiCard({
   icon: Icon,
   accent,
   compact = false,
+  labelSize,
+  valueSize,
 }: {
   label: string;
   value: string;
@@ -22,16 +24,18 @@ export function KpiCard({
   icon?: LucideIcon;
   /**
    * Optional hex color (e.g. "#2E5FD9") — tints the icon chip and adds a
-   * colored top accent bar. Omit for the default neutral card look; every
-   * existing caller that doesn't pass this renders pixel-identical to before.
+   * colored top accent bar. Omit for the default neutral card look.
    */
   accent?: string;
   /**
    * Centered label/value layout with a floating icon chip, for grids with
-   * 5+ cards in a row. Defaults to false — the original left-aligned layout
-   * — so existing callers (Deals/Customers/Dashboard) are unaffected.
+   * 5+ cards in a row. Defaults to false — the original left-aligned layout.
    */
   compact?: boolean;
+  /** Tailwind text-size class for the label, e.g. "text-xs". Overrides the compact/default. */
+  labelSize?: string;
+  /** Tailwind text-size class for the value, e.g. "text-2xl". Overrides the compact/default. */
+  valueSize?: string;
 }) {
   const toneClass =
     tone === "success"
@@ -43,6 +47,9 @@ export function KpiCard({
           : "text-muted-foreground";
 
   const TrendIcon = trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : null;
+
+  const resolvedLabelSize = labelSize ?? (compact ? "text-[11px]" : "text-xs");
+  const resolvedValueSize = valueSize ?? (compact ? "text-lg" : "text-2xl");
 
   if (compact) {
     return (
@@ -58,17 +65,15 @@ export function KpiCard({
             <Icon className="size-3.5" style={{ color: accent }} />
           </div>
         )}
-        <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
-        <span className="text-lg font-semibold tracking-tight font-mono">{value}</span>
-        {delta && TrendIcon && (
-          <span className={`text-xs font-medium flex items-center gap-0.5 ${toneClass}`}>
-            <TrendIcon className="size-3" />
-            {delta}
-          </span>
-        )}
-        {delta && !TrendIcon && (
-          <span className={`text-xs font-medium ${toneClass}`}>{delta}</span>
-        )}
+        <p className={`${resolvedLabelSize} font-medium text-muted-foreground uppercase tracking-wider`}>{label}</p>
+        <span className={`${resolvedValueSize} font-semibold tracking-tight font-mono`}>{value}</span>
+        {/* Always takes up a line of height, even with no delta, so cards
+            with and without one stay the same size instead of the delta
+            line pushing this card taller than its neighbors. */}
+        <span className={`h-0 text-xs font-medium flex items-center justify-center gap-0.5 ${delta ? toneClass : "invisible"}`}>
+          {TrendIcon && <TrendIcon className="size-3" />}
+          {delta ?? "·"}
+        </span>
       </div>
     );
   }
@@ -79,7 +84,7 @@ export function KpiCard({
       style={accent ? { borderTopColor: accent } : undefined}
     >
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+        <p className={`${resolvedLabelSize} font-medium text-muted-foreground uppercase tracking-wider`}>{label}</p>
         {Icon && (
           <div
             className={accent ? "size-7 rounded-md grid place-items-center" : "size-7 rounded-md bg-muted grid place-items-center"}
@@ -90,7 +95,7 @@ export function KpiCard({
         )}
       </div>
       <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-semibold tracking-tight font-mono text-center">{value}</span>
+        <span className={`${resolvedValueSize} font-semibold tracking-tight font-mono text-center`}>{value}</span>
         {delta && TrendIcon && (
           <span className={`text-xs font-medium flex items-center gap-0.5 ${toneClass}`}>
             <TrendIcon className="size-3" />
@@ -98,7 +103,7 @@ export function KpiCard({
           </span>
         )}
         {delta && !TrendIcon && (
-          <span className={`text-xs font-medium ${toneClass}`}>{delta}</span>
+          <span className={`text-9 font-medium ${toneClass}`}>{delta}</span>
         )}
       </div>
     </div>

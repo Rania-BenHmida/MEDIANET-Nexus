@@ -23,3 +23,22 @@ export function useCustomerProfile(companyId: number) {
     enabled:  Number.isFinite(companyId),
   });
 }
+
+export const customersB2BStatsKey = ["customers", "b2b", "stats"] as const;
+ 
+export function useCustomersB2BStats() {
+  return useQuery({
+    queryKey: customersB2BStatsKey,
+    queryFn:  customersApi.b2bStats,
+  });
+}
+
+
+export const customersB2CStatsKey = ["customers", "b2c", "stats"] as const;
+
+export function useCustomersB2CStats() {
+  return useQuery({
+    queryKey: customersB2CStatsKey,
+    queryFn:  customersApi.b2cStats,
+  });
+}

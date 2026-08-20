@@ -1,8 +1,11 @@
-import { Sparkles, PinOff, X } from "lucide-react";
+import { PinOff, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useAiAssistant } from "@/hooks/use-ai-assistant";
 import { AiChatView } from "./AiChatView";
+import medianauteAvatar from "@/assets/robot-avatar-static.png";
+
+const BRAND = { blue: "#2E5FD9", purple: "#8C5AC8" };
 
 /**
  * Docked (pinned) variant of the assistant. Unlike AIPanel — which floats
@@ -14,17 +17,35 @@ import { AiChatView } from "./AiChatView";
  */
 export function AiDock() {
   const { t } = useTranslation();
-  const { togglePin, closeAssistant } = useAiAssistant();
+  const { togglePin, closeAssistant, dockWidth, startDockResize } = useAiAssistant();
 
   return (
-    <aside className="sticky top-0 h-screen w-[26rem] shrink-0 border-l border-border bg-background flex flex-col">
+    <aside
+      style={{ width: dockWidth }}
+      className="sticky top-0 h-screen shrink-0 border-l border-border bg-background flex flex-col relative"
+    >
+      {/* Drag handle — grab anywhere on this thin strip to resize; width persists across reloads */}
+      <div
+        onPointerDown={startDockResize}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize assistant panel"
+        className="absolute left-0 top-0 h-full w-1.5 -ml-0.5 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors z-10"
+      />
       <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2 text-base font-semibold">
-          <div className="size-7 rounded-md bg-primary/10 grid place-items-center">
-            <Sparkles className="size-3.5 text-primary" />
-          </div>
+        <div className="flex items-center gap-2.5 text-base font-semibold">
+          <img
+            src={medianauteAvatar}
+            alt=""
+            aria-hidden
+            className="size-8 rounded-full object-cover shadow-sm"
+            style={{ backgroundColor: BRAND.blue }}
+          />
           {t("ai.title")}
-          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+          <span
+            className="text-[9px] font-mono px-1.5 py-0.5 rounded text-white"
+            style={{ background: `linear-gradient(90deg, ${BRAND.blue}, ${BRAND.purple})` }}
+          >
             BETA
           </span>
         </div>
@@ -37,7 +58,7 @@ export function AiDock() {
             aria-label="Unpin — go back to a floating panel"
             title="Unpin"
           >
-            <PinOff className="size-3.5 text-primary" />
+            <PinOff className="size-3.5" style={{ color: BRAND.blue }} />
           </Button>
           <Button
             variant="ghost"

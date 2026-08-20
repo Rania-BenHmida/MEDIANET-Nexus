@@ -167,7 +167,7 @@ def generate_natural_response(
     is_fr = language == "fr"
 
     if not data or row_count == 0:
-        return "Aucune donnée trouvée." if is_fr else "No data found."
+        return _empty_result_response(question, sql, language)
 
     # Give the model enough to reason with: a wider sample plus lightweight
     # aggregates over numeric columns, so answers have real depth instead of
@@ -184,6 +184,9 @@ def generate_natural_response(
             "Tu es un analyste Customer Success. Réponds EN FRANÇAIS, comme si tu "
             "expliquais à un collègue. Utilise les statistiques fournies pour "
             "parler de TOUTES les données, pas seulement de l'échantillon.\n\n"
+            "MONNAIE : tous les montants de cet entrepôt sont en Dinar Tunisien. "
+            "Écris-les toujours avec « DT » (ex. **150 000 DT**), JAMAIS avec $ ou £, "
+            "et ne parle jamais de « dollars » ou de « livres ».\n\n"
             "FORMAT — respecte EXACTEMENT les sauts de ligne :\n"
             "- Ligne 1 : UNE phrase d'accroche avec le chiffre clé en **gras**.\n"
             "- Puis une ligne COMPLÈTEMENT VIDE.\n"
@@ -215,6 +218,9 @@ def generate_natural_response(
             "You are a Customer Success analyst. Answer IN ENGLISH, like you're "
             "explaining to a colleague. Use the provided statistics to speak to "
             "the FULL dataset, not just the sample.\n\n"
+            "CURRENCY: every monetary amount in this warehouse is in Tunisian "
+            "Dinar. Always write amounts with 'DT' (e.g. **150,000 DT**), NEVER "
+            "with $ or £, and never call it 'dollars' or 'pounds'.\n\n"
             "FORMAT — follow the whitespace EXACTLY:\n"
             "- Line 1: ONE punchy sentence with the key figure in **bold**.\n"
             "- Then a COMPLETELY BLANK line.\n"
@@ -263,6 +269,89 @@ def generate_natural_response(
             if attempt == 0:
                 continue  # transient hiccup — try once more
     return _readable_fallback(question, data, row_count, is_fr)
+
+
+def _empty_result_response(question: str, sql: str, language: str = "en") -> str:
+    """
+    Used when the SQL ran fine but matched zero rows. Rather than a flat
+    "No data found.", ask the model to explain — in one short sentence —
+    why this specific question might have come back empty (wrong time
+    window, a filter that's too narrow, a segment with no matching
+    records, etc.), then suggest 2-3 concrete alternative questions the
+    warehouse can actually answer. Falls back to a static-but-still-useful
+    version if the LLM is briefly unavailable, so it's never just a dead end.
+    """
+    is_fr = language == "fr"
+
+    if is_fr:
+        system_prompt = (
+            "Tu es un analyste Customer Success. La requête SQL générée pour la "
+            "question de l'utilisateur s'est exécutée correctement mais n'a "
+            "renvoyé AUCUNE ligne. Réponds EN FRANÇAIS, en 3-5 lignes maximum :\n"
+            "1. Une phrase brève et sans jargon expliquant pourquoi ça peut être "
+            "vide pour CETTE question précise (ex. période sans données, filtre "
+            "trop restrictif, segment inexistant) — sans t'excuser ni blâmer "
+            "l'utilisateur.\n"
+            "2. Puis 2 à 3 puces avec des questions alternatives concrètes et "
+            "réalistes que l'utilisateur pourrait poser à la place, en lien avec "
+            "les clients, les affaires (deals), les projets ou l'attrition "
+            "(churn) — pas des questions génériques.\n\n"
+            "Markdown léger uniquement : puces « - », pas de titres, pas de SQL."
+        )
+        user_prompt = (
+            f'Question de l\'utilisateur : "{question}"\n\n'
+            f"SQL exécutée (0 résultat) :\n{sql}\n\nRéponse :"
+        )
+    else:
+        system_prompt = (
+            "You are a Customer Success analyst. The SQL generated for the "
+            "user's question ran fine but returned ZERO rows. Reply IN "
+            "ENGLISH, in 3-5 lines max:\n"
+            "1. One brief, jargon-free sentence on why this specific question "
+            "might be empty (e.g. no data in that time window, a filter that's "
+            "too narrow, a segment that doesn't exist) — no apologizing, no "
+            "blaming the user.\n"
+            "2. Then 2-3 bullets with concrete, realistic alternative questions "
+            "the user could ask instead, tied to customers, deals, projects, or "
+            "churn — not generic filler questions.\n\n"
+            "Light Markdown only: '- ' bullets, no headers, no SQL."
+        )
+        user_prompt = (
+            f'User question: "{question}"\n\n'
+            f"SQL that ran (0 results):\n{sql}\n\nAnswer:"
+        )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    for attempt in range(2):
+        try:
+            out = clean_model_text(chat(messages, max_tokens=300, temperature=0.4)).strip()
+            if out:
+                return out
+        except Exception:
+            if attempt == 0:
+                continue
+
+    # Static fallback — still gives real, concrete alternatives instead of
+    # a dead end, in case the LLM is briefly unavailable.
+    if is_fr:
+        return (
+            "Aucun résultat pour cette question précise — la période ou le "
+            "filtre demandé ne correspond peut-être à aucune donnée du moment.\n\n"
+            "- Quels clients risquent le plus l'attrition ?\n"
+            "- Quelles affaires ont la plus forte probabilité de clôture ?\n"
+            "- Montre-moi les projets en retard."
+        )
+    return (
+        "No results for this specific question — the time window or filter "
+        "you asked about may not match any current data.\n\n"
+        "- Which customers are most likely to churn?\n"
+        "- Which deals have the highest closing probability?\n"
+        "- Show me delayed projects."
+    )
 
 
 def _readable_fallback(question, data, row_count, is_fr: bool) -> str:

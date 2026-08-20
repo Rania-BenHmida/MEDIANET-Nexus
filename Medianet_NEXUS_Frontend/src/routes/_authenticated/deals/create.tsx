@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate, Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
@@ -14,7 +14,6 @@ import type { NewDeal } from "@/lib/api";
 import { dropdownsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -24,7 +23,8 @@ import {
 } from "@/components/ui/select";
 import {
   Users, Tag, Building2, MapPin, Calendar,
-  DollarSign, CalendarDays, Loader2, CheckCircle2, Plus, X,
+  DollarSign, CalendarDays, Loader2, CheckCircle2, Plus, X, Sparkles,
+  ArrowLeft, Home,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -33,21 +33,50 @@ export const Route = createFileRoute("/_authenticated/deals/create")({
   component: CreateDealPage,
 });
 
+// Same brand palette as Customers/Projects.
+const BRAND = {
+  blue:   "#2E5FD9",
+  orange: "#F5A623",
+  coral:  "#F0564B",
+  teal:   "#3EC8C8",
+  purple: "#8C5AC8",
+  navy:   "#1B2A5B",
+};
+
+const RAINBOW = [BRAND.blue, BRAND.purple, BRAND.coral, BRAND.orange, BRAND.teal, BRAND.navy];
+
 // ── Field wrapper ─────────────────────────────────────────────────────────────
+// Colored icon-chip version — same visual language as the Customers/Projects
+// create pages, so every input gets its own brand color instead of one flat
+// gray icon.
 
 function Field({
-  icon: Icon, label, required, children,
+  icon: Icon, label, required, color = BRAND.blue, children,
 }: {
-  icon: React.ElementType; label: string; required?: boolean; children: React.ReactNode;
+  icon: React.ElementType; label: string; required?: boolean; color?: string; children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        <Icon className="size-3.5" />
-        {label}
-        {required && <span className="text-destructive">*</span>}
-      </Label>
+      <div className="flex items-center gap-2">
+        <div className="size-6 rounded-md grid place-items-center shrink-0" style={{ backgroundColor: `${color}1a` }}>
+          <Icon className="size-3.5" style={{ color }} />
+        </div>
+        <label className="text-xs font-semibold text-foreground">
+          {label} {required && <span style={{ color }}>*</span>}
+        </label>
+      </div>
       {children}
+    </div>
+  );
+}
+
+// Colored section divider — same dot + fading rule as the other create pages.
+function GroupLabel({ children, color }: { children: React.ReactNode; color: string }) {
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">{children}</span>
+      <div className="flex-1 h-px" style={{ background: `linear-gradient(90deg, ${color}55, transparent)` }} />
     </div>
   );
 }
@@ -111,18 +140,30 @@ function PopoverShell({
 // ── Mini select inside popovers ───────────────────────────────────────────────
 
 function PopoverSelect({
-  options, value, onChange, placeholder,
+  options, value, onChange, placeholder, labels,
 }: {
   options: string[]; value: string; onChange: (v: string) => void; placeholder: string;
+  // Optional per-value display overrides, e.g. { __new__: "＋ Add new manager…" }.
+  // Falls back to the raw option string when a value has no override.
+  labels?: Record<string, string>;
 }) {
+  // Sentinel "add new…" options (prefixed "__new_") always render first
+  // instead of sitting wherever insertion order happens to put them.
+  const sorted = [...options].sort((a, b) => {
+    const aNew = a.startsWith("__new_");
+    const bNew = b.startsWith("__new_");
+    if (aNew === bNew) return 0;
+    return aNew ? -1 : 1;
+  });
+
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="h-8 text-xs bg-background">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o} value={o} className="text-xs">{o}</SelectItem>
+        {sorted.map((o) => (
+          <SelectItem key={o} value={o} className="text-xs">{labels?.[o] ?? o}</SelectItem>
         ))}
       </SelectContent>
     </Select>
@@ -214,6 +255,10 @@ function SelectWithAdd({
 
 // ── Add Agent popover ─────────────────────────────────────────────────────────
 
+const AGENT_FIELD_LABELS: Record<string, string> = {
+  __new__: "＋ Add new manager…",
+};
+
 function AddAgentPopover({ onAdd, onClose }: { onAdd: (name: string) => void; onClose: () => void }) {
   const { data: managers = [], isLoading: loadingMgr } = useAgentManagers();
   const { data: offices  = [], isLoading: loadingOff } = useAgentOffices();
@@ -278,7 +323,7 @@ function AddAgentPopover({ onAdd, onClose }: { onAdd: (name: string) => void; on
         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Manager *</p>
         {loadingMgr
           ? <div className="h-8 flex items-center px-2 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin mr-1.5" />Loading…</div>
-          : <PopoverSelect options={[...managers, "__new__"]} value={manager} onChange={(v) => { setManager(v); setErr(null); }} placeholder="Select manager" />
+          : <PopoverSelect options={[...managers, "__new__"]} value={manager} onChange={(v) => { setManager(v); setErr(null); }} placeholder="Select manager" labels={AGENT_FIELD_LABELS} />
         }
         {manager === "__new__" && (
           <input
@@ -303,7 +348,8 @@ function AddAgentPopover({ onAdd, onClose }: { onAdd: (name: string) => void; on
       <div className="flex items-center justify-end gap-1.5 pt-0.5">
         <button type="button" onClick={onClose} className="h-7 px-2.5 text-xs rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">Cancel</button>
         <button type="button" onClick={() => void handleAdd()} disabled={busy}
-          className="h-7 px-3 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5">
+          style={{ background: `linear-gradient(90deg, ${BRAND.purple}, ${BRAND.blue})` }}
+          className="h-7 px-3 text-xs rounded-md text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5">
           {busy ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
           {busy ? "Adding…" : "Add agent"}
         </button>
@@ -473,7 +519,8 @@ function AddCompanyPopover({ onAdd, onClose }: { onAdd: (name: string) => void; 
       <div className="flex items-center justify-end gap-1.5 pt-0.5">
         <button type="button" onClick={onClose} className="h-7 px-2.5 text-xs rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">Cancel</button>
         <button type="button" onClick={() => void handleAdd()} disabled={busy}
-          className="h-7 px-3 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5">
+          style={{ background: `linear-gradient(90deg, ${BRAND.blue}, ${BRAND.teal})` }}
+          className="h-7 px-3 text-xs rounded-md text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5">
           {busy ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
           {busy ? "Adding…" : "Add company"}
         </button>
@@ -557,7 +604,8 @@ function AddStagePopover({ onAdd, onClose }: { onAdd: (name: string) => void; on
       <div className="flex items-center justify-end gap-1.5 pt-0.5">
         <button type="button" onClick={onClose} className="h-7 px-2.5 text-xs rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">Cancel</button>
         <button type="button" onClick={() => void handleAdd()} disabled={busy}
-          className="h-7 px-3 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5">
+          style={{ background: `linear-gradient(90deg, ${BRAND.orange}, ${BRAND.coral})` }}
+          className="h-7 px-3 text-xs rounded-md text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5">
           {busy ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
           {busy ? "Adding…" : "Add stage"}
         </button>
@@ -615,6 +663,13 @@ function CreateDealPage() {
         eyebrow="CRM"
         title="Create New Deal"
         description="Enter deal details below. Once saved, Talend will pick it up and load it into the warehouse."
+        actions={
+          <div className="flex items-center gap-3">
+            <Link to="/deals/list" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="size-3.5" /> Back to deals
+            </Link>
+          </div>
+        }
       />
 
       {loading ? (
@@ -626,13 +681,21 @@ function CreateDealPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* ── Form card ─────────────────────────────────────────────────── */}
-          <div className="lg:col-span-2 bg-card border border-border rounded-xl shadow-[var(--shadow-card)]">
+          <div className="lg:col-span-2 bg-card border border-border rounded-xl shadow-[var(--shadow-card)] overflow-hidden">
+            {/* Decorative brand strip */}
+            <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${RAINBOW.join(", ")})` }} />
+
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-sm font-semibold">Deal information</h2>
+              <div className="flex items-center gap-2.5">
+                <div className="size-8 rounded-lg grid place-items-center" style={{ backgroundColor: `${BRAND.blue}1a` }}>
+                  <Building2 className="size-4" style={{ color: BRAND.blue }} />
+                </div>
+                <h2 className="text-sm font-semibold">Deal information</h2>
+              </div>
               <div className="flex items-center gap-2.5">
                 <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-primary rounded-full transition-all duration-300"
-                    style={{ width: `${(filled / requiredFields.length) * 100}%` }} />
+                  <div className="h-full rounded-full transition-all duration-300"
+                    style={{ width: `${(filled / requiredFields.length) * 100}%`, background: `linear-gradient(90deg, ${BRAND.blue}, ${BRAND.purple})` }} />
                 </div>
                 <span className="text-xs text-muted-foreground tabular-nums">{filled}/{requiredFields.length}</span>
               </div>
@@ -644,10 +707,12 @@ function CreateDealPage() {
                   <div className="bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2.5 rounded-lg text-sm">{error}</div>
                 )}
 
+                <GroupLabel color={BRAND.purple}>Assignment</GroupLabel>
+
                 {/* Agent + Plan */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Agent — "+" button sits beside the select, not inside it */}
-                  <Field icon={Users} label="Agent" required>
+                  <Field icon={Users} label="Agent" color={BRAND.purple} required>
                     <div className="relative">
                       <SelectWithAdd addLabel="agent" onAdd={() => setAddOpen("agent")}>
                         <SearchableSelect
@@ -668,7 +733,7 @@ function CreateDealPage() {
                   </Field>
 
                   {/* Plan — no add button */}
-                  <Field icon={Tag} label="Plan" required>
+                  <Field icon={Tag} label="Plan" color={BRAND.teal} required>
                     <SearchableSelect
                       options={plans.map((p) => ({ label: p, value: p }))}
                       value={formData.plan_name}
@@ -681,7 +746,7 @@ function CreateDealPage() {
 
                 {/* Company + Stage */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field icon={Building2} label="Company" required>
+                  <Field icon={Building2} label="Company" color={BRAND.blue} required>
                     <div className="relative">
                       <SelectWithAdd addLabel="company" onAdd={() => setAddOpen("company")}>
                         <SearchableSelect
@@ -701,7 +766,7 @@ function CreateDealPage() {
                     </div>
                   </Field>
 
-                  <Field icon={MapPin} label="Stage" required>
+                  <Field icon={MapPin} label="Stage" color={BRAND.orange} required>
                     <div className="relative">
                       <SelectWithAdd addLabel="stage" onAdd={() => setAddOpen("stage")}>
                         <SearchableSelect
@@ -722,24 +787,26 @@ function CreateDealPage() {
                   </Field>
                 </div>
 
-                <div className="border-t border-border" />
+                <GroupLabel color={BRAND.coral}>Timeline</GroupLabel>
 
                 {/* Dates */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field icon={Calendar} label="Engage date" required>
+                  <Field icon={Calendar} label="Engage date" color={BRAND.coral} required>
                     <Input type="date" required className="h-10 bg-background"
                       value={formData.engage_date}
                       onChange={(e) => setFormData({ ...formData, engage_date: e.target.value })} />
                   </Field>
-                  <Field icon={CalendarDays} label="Close date">
+                  <Field icon={CalendarDays} label="Close date" color={BRAND.navy}>
                     <Input type="date" className="h-10 bg-background"
                       value={formData.close_date ?? ""}
                       onChange={(e) => setFormData({ ...formData, close_date: e.target.value })} />
                   </Field>
                 </div>
 
+                <GroupLabel color={BRAND.teal}>Value</GroupLabel>
+
                 {/* Close value */}
-                <Field icon={DollarSign} label="Close value (DT)">
+                <Field icon={DollarSign} label="Close value (DT)" color={BRAND.teal}>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground pointer-events-none">DT</span>
                     <Input type="number" min={0} className="h-10 bg-background pl-9" placeholder="0.00"
@@ -751,7 +818,9 @@ function CreateDealPage() {
 
               <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
                 <Button type="button" variant="ghost" size="sm" onClick={() => window.history.back()}>Cancel</Button>
-                <Button type="submit" size="sm" disabled={createDeal.isPending}>
+                <Button type="submit" size="sm" disabled={createDeal.isPending}
+                  style={{ background: `linear-gradient(90deg, ${BRAND.blue}, ${BRAND.purple})`, border: "none" }}
+                  className="text-white hover:opacity-90 transition-opacity disabled:opacity-40">
                   {createDeal.isPending
                     ? <><Loader2 className="size-3.5 animate-spin" />Saving…</>
                     : <><CheckCircle2 className="size-3.5" />Create deal</>}
@@ -762,19 +831,22 @@ function CreateDealPage() {
 
           {/* ── Tips sidebar ──────────────────────────────────────────────── */}
           <div className="space-y-4">
-            <div className="bg-card border border-border rounded-xl p-5 shadow-[var(--shadow-card)] space-y-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tips</h3>
+            <div className="bg-card border border-border rounded-xl p-5 shadow-[var(--shadow-card)] space-y-4 border-t-4" style={{ borderTopColor: BRAND.purple }}>
+              <div className="flex items-center gap-2">
+                <Sparkles className="size-3.5" style={{ color: BRAND.purple }} />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tips</h3>
+              </div>
               <ul className="space-y-3">
                 {[
-                  { icon: Users,      text: "Agent is the sales person responsible for this deal." },
-                  { icon: Tag,        text: "Plan determines the product or service tier." },
-                  { icon: Building2,  text: "Company is the partner where the deal originates." },
-                  { icon: MapPin,     text: "Stage reflects where the deal sits in the pipeline." },
-                  { icon: DollarSign, text: "Close value is optional — add it when the deal is near closing." },
-                ].map(({ icon: Icon, text }, i) => (
+                  { icon: Users,      text: "Agent is the sales person responsible for this deal.", color: BRAND.purple },
+                  { icon: Tag,        text: "Plan determines the product or service tier.", color: BRAND.teal },
+                  { icon: Building2,  text: "Company is the partner where the deal originates.", color: BRAND.blue },
+                  { icon: MapPin,     text: "Stage reflects where the deal sits in the pipeline.", color: BRAND.orange },
+                  { icon: DollarSign, text: "Close value is optional — add it when the deal is near closing.", color: BRAND.teal },
+                ].map(({ icon: Icon, text, color }, i) => (
                   <li key={i} className="flex items-start gap-2.5">
-                    <div className="size-6 rounded-md bg-muted grid place-items-center shrink-0 mt-0.5">
-                      <Icon className="size-3 text-muted-foreground" />
+                    <div className="size-6 rounded-md grid place-items-center shrink-0 mt-0.5" style={{ backgroundColor: `${color}1a` }}>
+                      <Icon className="size-3" style={{ color }} />
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">{text}</p>
                   </li>
@@ -782,9 +854,9 @@ function CreateDealPage() {
               </ul>
             </div>
 
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-              <p className="text-xs text-primary/80 leading-relaxed">
-                Deals saved here are queued as <span className="font-semibold text-primary">pending</span> and loaded into the warehouse automatically by Talend.
+            <div className="rounded-xl p-4 border" style={{ backgroundColor: `${BRAND.blue}0d`, borderColor: `${BRAND.blue}33` }}>
+              <p className="text-xs leading-relaxed" style={{ color: BRAND.blue }}>
+                Deals saved here are queued as <span className="font-semibold">pending</span> and loaded into the warehouse automatically by Talend.
               </p>
             </div>
           </div>

@@ -15,6 +15,10 @@ const roleAssignmentSchema = z.object({
   role: z.enum(roleValues),
 });
 
+const deleteUserSchema = z.object({
+  userId: z.string(),
+});
+
 async function requireUserId(): Promise<string> {
   const { headers } = getRequest();
   const session = await auth.api.getSession({ headers });
@@ -33,7 +37,13 @@ async function requireAdmin(): Promise<string> {
 
 // Fetches the current user's profile + roles.
 // Replaces the two supabase.from(...) calls in use-auth.tsx's loadUserData.
-export const getCurrentUserData = createServerFn({ method: "GET" }).handler(async () => {
+//
+// IMPORTANT: this must stay a POST, not GET. Browsers can cache GET
+// responses by URL alone, ignoring the session cookie — so after one
+// account's roles got cached, a *different* account logging in at the same
+// URL would silently receive the previous account's cached roles instead
+// of a fresh request. POST is never browser-cached, so every call is real.
+export const getCurrentUserData = createServerFn({ method: "POST" }).handler(async () => {
   const userId = await requireUserId();
 
   const [profile, roleRows] = await Promise.all([
@@ -48,11 +58,20 @@ export const getCurrentUserData = createServerFn({ method: "GET" }).handler(asyn
 });
 
 // Replaces the admin.tsx supabase.from("profiles") / supabase.from("user_roles") queries.
-export const getAllUsersWithRoles = createServerFn({ method: "GET" }).handler(async () => {
+// Now also pulls email + createdAt from the `user` table (Better Auth's own table) so the
+// Roles page can show contact info and tell genuinely-new signups apart from old accounts
+// that just never got a role.
+//
+// Same GET-caching hazard as getCurrentUserData above — kept as POST so the
+// Roles page always reflects the real current state, never a stale cache.
+export const getAllUsersWithRoles = createServerFn({ method: "POST" }).handler(async () => {
   await requireAdmin();
 
   const allProfiles = await db.select().from(profiles);
   const allRoles = await db.select().from(userRoles);
+  const allUsers = await db
+    .select({ id: user.id, email: user.email, createdAt: user.createdAt })
+    .from(user);
 
   const byUser = new Map<string, AppRole[]>();
   for (const r of allRoles) {
@@ -61,11 +80,18 @@ export const getAllUsersWithRoles = createServerFn({ method: "GET" }).handler(as
     byUser.set(r.userId, list);
   }
 
-  return allProfiles.map((p) => ({
-    user_id: p.id,
-    display_name: p.displayName,
-    roles: byUser.get(p.id) ?? [],
-  }));
+  const userInfoById = new Map(allUsers.map((u) => [u.id, u]));
+
+  return allProfiles.map((p) => {
+    const info = userInfoById.get(p.id);
+    return {
+      user_id: p.id,
+      display_name: p.displayName,
+      email: info?.email ?? null,
+      created_at: info?.createdAt ? info.createdAt.toISOString() : null,
+      roles: byUser.get(p.id) ?? [],
+    };
+  });
 });
 
 // Assigns a role to a user. Only callable by admins.
@@ -89,6 +115,21 @@ export const assignRole = createServerFn({ method: "POST" })
       role: data.role,
     });
 
+    // Best-effort: let the new joiner know their access is ready. Never
+    // blocks the assignment — the role is already granted above either way.
+    if (targetUser?.email) {
+      try {
+        const { sendAccountEmail } = await import("./api/accounts");
+        await sendAccountEmail({
+          event: "role_assigned",
+          recipients: [targetUser.email],
+          context: { name: targetUser.name ?? "there", role_label: ROLE_LABELS[data.role] },
+        });
+      } catch (err) {
+        console.warn("[user-data] Failed to notify user of role assignment:", err);
+      }
+    }
+
     return { ok: true };
   });
 
@@ -101,6 +142,29 @@ export const revokeRole = createServerFn({ method: "POST" })
     await db
       .delete(userRoles)
       .where(and(eq(userRoles.userId, data.userId), eq(userRoles.role, data.role)));
+
+    return { ok: true };
+  });
+
+// Permanently deletes a user account — for cleaning up test signups.
+// The `user` row is the root of the FK chain (session, account, profiles,
+// user_roles all declare onDelete: "cascade" against it in schema.ts), so
+// one delete here removes everything: login, profile, and every role.
+//
+// Blocked for superadmin accounts, full stop, regardless of who's calling
+// this — there's no UI path to re-bootstrap a superadmin once the last one
+// is gone, so this is the one hard guardrail rather than a soft warning.
+export const deleteUser = createServerFn({ method: "POST" })
+  .inputValidator(deleteUserSchema)
+  .handler(async ({ data }) => {
+    await requireAdmin();
+
+    const targetRoles = await db.query.userRoles.findMany({ where: eq(userRoles.userId, data.userId) });
+    if (targetRoles.some((r) => r.role === "superadmin")) {
+      throw new Error("Superadmin accounts can't be deleted.");
+    }
+
+    await db.delete(user).where(eq(user.id, data.userId));
 
     return { ok: true };
   });

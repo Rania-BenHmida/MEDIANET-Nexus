@@ -4,7 +4,26 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .services import get_customers_list, get_company_profile
+from .services import get_customers_list, get_company_profile, get_b2b_stats, get_b2c_stats
+
+
+@api_view(["GET"])
+def customers_b2b_stats(request):
+    """GET /api/customers/b2b/stats/ — KPI cards for the B2B tab."""
+    try:
+        return Response(get_b2b_stats())
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+def customers_b2c_stats(request):
+    """GET /api/customers/b2c/stats/ — KPI cards for the B2C tab."""
+    try:
+        return Response(get_b2c_stats())
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(["GET"])
 def customers_list(request):

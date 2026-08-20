@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SurveyTokenRouteImport } from './routes/survey/$token'
 import { Route as AuthenticatedTalendRouteImport } from './routes/_authenticated/talend'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedSurveysIndexRouteImport } from './routes/_authenticated/surveys/index'
@@ -29,6 +30,7 @@ import { Route as AuthenticatedProjectsCreateRouteImport } from './routes/_authe
 import { Route as AuthenticatedDealsListRouteImport } from './routes/_authenticated/deals/list'
 import { Route as AuthenticatedDealsCreateRouteImport } from './routes/_authenticated/deals/create'
 import { Route as AuthenticatedCustomersListRouteImport } from './routes/_authenticated/customers/list'
+import { Route as AuthenticatedCustomersCreateRouteImport } from './routes/_authenticated/customers/create'
 import { Route as AuthenticatedCustomersCompanyIdRouteImport } from './routes/_authenticated/customers/$companyId'
 import { Route as AuthenticatedAiGenBIRouteImport } from './routes/_authenticated/ai/GenBI'
 import { Route as AuthenticatedProjectsTasksIndexRouteImport } from './routes/_authenticated/projects/tasks/index'
@@ -66,6 +68,11 @@ const AuthenticatedTalendRoute = AuthenticatedTalendRouteImport.update({
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -141,6 +148,12 @@ const AuthenticatedCustomersListRoute =
     path: '/customers/list',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedCustomersCreateRoute =
+  AuthenticatedCustomersCreateRouteImport.update({
+    id: '/customers/create',
+    path: '/customers/create',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedCustomersCompanyIdRoute =
   AuthenticatedCustomersCompanyIdRouteImport.update({
     id: '/customers/$companyId',
@@ -171,11 +184,13 @@ export interface FileRoutesByFullPath {
   '/unauthorized': typeof UnauthorizedRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/talend': typeof AuthenticatedTalendRoute
   '/survey/$token': typeof SurveyTokenRoute
   '/ai/GenBI': typeof AuthenticatedAiGenBIRoute
   '/customers/$companyId': typeof AuthenticatedCustomersCompanyIdRoute
+  '/customers/create': typeof AuthenticatedCustomersCreateRoute
   '/customers/list': typeof AuthenticatedCustomersListRoute
   '/deals/create': typeof AuthenticatedDealsCreateRoute
   '/deals/list': typeof AuthenticatedDealsListRoute
@@ -196,11 +211,13 @@ export interface FileRoutesByTo {
   '/unauthorized': typeof UnauthorizedRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/talend': typeof AuthenticatedTalendRoute
   '/survey/$token': typeof SurveyTokenRoute
   '/ai/GenBI': typeof AuthenticatedAiGenBIRoute
   '/customers/$companyId': typeof AuthenticatedCustomersCompanyIdRoute
+  '/customers/create': typeof AuthenticatedCustomersCreateRoute
   '/customers/list': typeof AuthenticatedCustomersListRoute
   '/deals/create': typeof AuthenticatedDealsCreateRoute
   '/deals/list': typeof AuthenticatedDealsListRoute
@@ -223,11 +240,13 @@ export interface FileRoutesById {
   '/unauthorized': typeof UnauthorizedRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/talend': typeof AuthenticatedTalendRoute
   '/survey/$token': typeof SurveyTokenRoute
   '/_authenticated/ai/GenBI': typeof AuthenticatedAiGenBIRoute
   '/_authenticated/customers/$companyId': typeof AuthenticatedCustomersCompanyIdRoute
+  '/_authenticated/customers/create': typeof AuthenticatedCustomersCreateRoute
   '/_authenticated/customers/list': typeof AuthenticatedCustomersListRoute
   '/_authenticated/deals/create': typeof AuthenticatedDealsCreateRoute
   '/_authenticated/deals/list': typeof AuthenticatedDealsListRoute
@@ -250,11 +269,13 @@ export interface FileRouteTypes {
     | '/unauthorized'
     | '/admin'
     | '/dashboard'
+    | '/reports'
     | '/settings'
     | '/talend'
     | '/survey/$token'
     | '/ai/GenBI'
     | '/customers/$companyId'
+    | '/customers/create'
     | '/customers/list'
     | '/deals/create'
     | '/deals/list'
@@ -275,11 +296,13 @@ export interface FileRouteTypes {
     | '/unauthorized'
     | '/admin'
     | '/dashboard'
+    | '/reports'
     | '/settings'
     | '/talend'
     | '/survey/$token'
     | '/ai/GenBI'
     | '/customers/$companyId'
+    | '/customers/create'
     | '/customers/list'
     | '/deals/create'
     | '/deals/list'
@@ -301,11 +324,13 @@ export interface FileRouteTypes {
     | '/unauthorized'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
+    | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/talend'
     | '/survey/$token'
     | '/_authenticated/ai/GenBI'
     | '/_authenticated/customers/$companyId'
+    | '/_authenticated/customers/create'
     | '/_authenticated/customers/list'
     | '/_authenticated/deals/create'
     | '/_authenticated/deals/list'
@@ -379,6 +404,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -472,6 +504,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersListRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/customers/create': {
+      id: '/_authenticated/customers/create'
+      path: '/customers/create'
+      fullPath: '/customers/create'
+      preLoaderRoute: typeof AuthenticatedCustomersCreateRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/customers/$companyId': {
       id: '/_authenticated/customers/$companyId'
       path: '/customers/$companyId'
@@ -506,10 +545,12 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTalendRoute: typeof AuthenticatedTalendRoute
   AuthenticatedAiGenBIRoute: typeof AuthenticatedAiGenBIRoute
   AuthenticatedCustomersCompanyIdRoute: typeof AuthenticatedCustomersCompanyIdRoute
+  AuthenticatedCustomersCreateRoute: typeof AuthenticatedCustomersCreateRoute
   AuthenticatedCustomersListRoute: typeof AuthenticatedCustomersListRoute
   AuthenticatedDealsCreateRoute: typeof AuthenticatedDealsCreateRoute
   AuthenticatedDealsListRoute: typeof AuthenticatedDealsListRoute
@@ -527,10 +568,12 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTalendRoute: AuthenticatedTalendRoute,
   AuthenticatedAiGenBIRoute: AuthenticatedAiGenBIRoute,
   AuthenticatedCustomersCompanyIdRoute: AuthenticatedCustomersCompanyIdRoute,
+  AuthenticatedCustomersCreateRoute: AuthenticatedCustomersCreateRoute,
   AuthenticatedCustomersListRoute: AuthenticatedCustomersListRoute,
   AuthenticatedDealsCreateRoute: AuthenticatedDealsCreateRoute,
   AuthenticatedDealsListRoute: AuthenticatedDealsListRoute,

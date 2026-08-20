@@ -1,9 +1,12 @@
-import { Sparkles, Pin } from "lucide-react";
+import { Pin } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useAiAssistant } from "@/hooks/use-ai-assistant";
 import { AiChatView } from "./AiChatView";
+import medianauteAvatar from "@/assets/robot-avatar-static.png";
+
+const BRAND = { blue: "#2E5FD9", purple: "#8C5AC8" };
 
 /**
  * The quick-access popup (opened from the TopBar's "Ask AI" button or the
@@ -25,15 +28,22 @@ export function AIPanel() {
         if (!v) closeAssistant();
       }}
     >
-      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col gap-0">
+      <SheetContent side="right" className="w-full sm:max-w-sm p-0 flex flex-col gap-0">
         <SheetHeader className="px-5 py-4 border-b border-border space-y-0">
           <div className="flex items-center justify-between">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <div className="size-7 rounded-md bg-primary/10 grid place-items-center">
-                <Sparkles className="size-3.5 text-primary" />
-              </div>
+            <SheetTitle className="flex items-center gap-2.5 text-base">
+              <img
+                src={medianauteAvatar}
+                alt=""
+                aria-hidden
+                className="size-8 rounded-full object-cover shadow-sm"
+                style={{ backgroundColor: BRAND.blue }}
+              />
               {t("ai.title")}
-              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+              <span
+                className="text-[9px] font-mono px-1.5 py-0.5 rounded text-white"
+                style={{ background: `linear-gradient(90deg, ${BRAND.blue}, ${BRAND.purple})` }}
+              >
                 BETA
               </span>
             </SheetTitle>

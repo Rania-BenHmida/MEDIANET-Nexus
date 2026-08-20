@@ -1,20 +1,46 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate, Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/AppShell";
 import { KpiCard } from "@/components/KpiCard";
-import { ReportSection } from "@/components/ReportSection";
-import { EMBEDS } from "@/lib/embeds";
+import { InsightsPanel } from "@/components/InsightsPanel";
 import { useAuth } from "@/hooks/use-auth";
-import { DollarSign, Briefcase, AlertTriangle, Activity, Sparkles } from "lucide-react";
+import { useDashboardStats } from "@/hooks/use-dashboard";
+import { accessibleInsightCategories, canAccess } from "@/lib/roles";
+import {
+  DollarSign, Briefcase, AlertTriangle, FolderKanban as ProjectsIcon,
+  TrendingUp, Layers, LayoutGrid,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
+// Same brand palette as Projects/Deals/Customers, a fourth alternation.
+const BRAND = {
+  orange: "#F5A623",
+  blue:   "#2E5FD9",
+  teal:   "#3EC8C8",
+  coral:  "#F0564B",
+  purple: "#8C5AC8",
+};
+
+function formatCompactNumber(value: number): string {
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B DT`;
+  if (value >= 1_000_000) return `${Math.round(value / 1_000_000)}M DT`;
+  if (value >= 1_000) return `${Math.round(value / 1_000)}K DT`;
+  return `DT ${value.toLocaleString()}`;
+}
+
 function Dashboard() {
-  const { profile } = useAuth();
+  const { profile, roles } = useAuth();
   const { t } = useTranslation();
   const first = profile?.displayName?.split(" ")[0] ?? "there";
+
+  const categories = accessibleInsightCategories(roles);
+
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useDashboardStats();
+
+  if (!canAccess("dashboard", roles)) return <Navigate to="/unauthorized" />;
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto">
@@ -22,55 +48,68 @@ function Dashboard() {
         eyebrow={t("dashboard.eyebrow")}
         title={t("dashboard.greeting", { name: first })}
         description={t("dashboard.description")}
+        actions={
+          <Link to="/reports" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <LayoutGrid className="size-3.5" /> Reports
+          </Link>
+        }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <KpiCard label={t("dashboard.kpi.totalRevenue")} value="$14.29M" delta="+12.4%" trend="up" tone="success" icon={DollarSign} />
-        <KpiCard label={t("dashboard.kpi.activeDeals")} value="184" delta={t("dashboard.kpi.stable")} tone="default" icon={Briefcase} />
-        <KpiCard label={t("dashboard.kpi.churnRisk")} value="4.2%" delta={t("dashboard.kpi.high")} tone="destructive" trend="up" icon={AlertTriangle} />
-        <KpiCard label={t("dashboard.kpi.projectHealth")} value="92%" delta={t("dashboard.kpi.onTrack")} tone="success" icon={Activity} />
-      </div>
-
-      
-        
-
-        <div className="bg-card border border-border rounded-xl p-5 shadow-[var(--shadow-card)] space-y-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Sparkles className="size-3.5 text-primary" /> {t("dashboard.insights.title")}
-            </h3>
-            <span className="text-[10px] font-mono text-muted-foreground">{t("dashboard.insights.updated")}</span>
-          </div>
-          <div className="space-y-3">
-            <InsightCard tone="primary" title={t("dashboard.insights.revenueTitle")} body={t("dashboard.insights.revenueBody")} />
-            <InsightCard tone="warning" title={t("dashboard.insights.migrationTitle")} body={t("dashboard.insights.migrationBody")} />
-            <InsightCard tone="destructive" title={t("dashboard.insights.dachTitle")} body={t("dashboard.insights.dachBody")} />
-          </div>
+      {statsLoading && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="bg-card rounded-xl border border-border p-3.5 h-20 animate-pulse" />
+          ))}
         </div>
-      
-    </div>
-  );
-}
+      )}
 
-function InsightCard({
-  tone,
-  title,
-  body,
-}: {
-  tone: "primary" | "warning" | "destructive";
-  title: string;
-  body: string;
-}) {
-  const border =
-    tone === "primary"
-      ? "border-l-primary"
-      : tone === "warning"
-        ? "border-l-warning"
-        : "border-l-destructive";
-  return (
-    <div className={`p-3 bg-muted/40 rounded-md border-l-2 ${border}`}>
-      <p className="text-sm font-medium">{title}</p>
-      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{body}</p>
+      {statsError && !statsLoading && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-xl p-4 text-sm mb-8">
+          Failed to load overview stats. Make sure the Django backend is running.
+        </div>
+      )}
+
+      {stats && !statsLoading && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+          <KpiCard
+            compact
+            label={t("dashboard.kpi.totalRevenue")}
+            value={formatCompactNumber(stats.totalRevenue)}
+            icon={DollarSign}
+            accent={BRAND.orange}
+          />
+          <KpiCard
+            compact
+            label={t("dashboard.kpi.activeDeals")}
+            value={stats.activeDeals.toLocaleString()}
+            icon={Briefcase}
+            accent={BRAND.blue}
+          />
+          <KpiCard
+            compact
+            label={t("dashboard.kpi.activeProjects")}
+            value={stats.activeProjects.toLocaleString()}
+            icon={ProjectsIcon}
+            accent={BRAND.teal}
+          />
+          <KpiCard
+            compact
+            label={t("dashboard.kpi.churnRisk")}
+            value={`${stats.overallChurnRate}%`}
+            icon={AlertTriangle}
+            accent={BRAND.coral}
+          />
+          <KpiCard
+            compact
+            label={t("dashboard.kpi.totalAccounts")}
+            value={stats.totalAccounts.toLocaleString()}
+            icon={Layers}
+            accent={BRAND.purple}
+          />
+        </div>
+      )}
+
+      <InsightsPanel categories={categories} cardLayout="stacked" />
     </div>
   );
 }

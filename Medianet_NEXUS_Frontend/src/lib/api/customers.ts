@@ -41,6 +41,25 @@ export type CustomerHealth = {
   upsellBreakdown: UpsellBreakdown | null;
 };
 
+export type CustomersB2BStats = {
+  totalCompanies: number;
+  arrAccumulated: number;
+  arrAdded: number;
+  arrYear: number;
+  churnRate: number;
+  fidelityRate: number;
+  escalatedTickets: number;
+};
+
+export type CustomersB2CStats = {
+  totalCustomers: number;
+  totalRevenue: number;
+  avgCltv: number;
+  churnRate: number;
+  churnRevenueRate: number;
+  atRiskCustomers: number;
+};
+
 export type CustomerDeal = {
   id: number;
   value: number | null;
@@ -85,7 +104,12 @@ export type CustomerProfile = {
   recommendedActions: [];
 };
 
+
+
 export const customersApi = {
+  b2bStats: () => get<CustomersB2BStats>("/customers/b2b/stats/"),
+  b2cStats: () => get<CustomersB2CStats>("/customers/b2c/stats/"),   // ← add this line
   list:   ()               => get<CustomerListItem[]>("/customers/"),
   get:    (companyId: number) => get<CustomerProfile>(`/customers/${companyId}/`),
 };
+ 

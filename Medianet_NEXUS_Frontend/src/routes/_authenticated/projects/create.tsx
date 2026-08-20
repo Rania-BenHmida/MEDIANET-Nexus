@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { canAccess } from "@/lib/roles";
@@ -13,11 +13,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Field, PopoverShell, PopoverSelect, SearchableSelect, SelectWithAdd,
+  PopoverShell, PopoverSelect, SearchableSelect, SelectWithAdd,
 } from "@/components/forms/SelectPrimitives";
 import {
   Briefcase, Users, Building2, Calendar, CalendarDays, ListChecks,
-  FileText, Loader2, CheckCircle2, Plus, Layers,
+  FileText, Loader2, CheckCircle2, Plus, Layers, Sparkles,
+  ArrowLeft, Home,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -25,6 +26,19 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/projects/create")({
   component: CreateProjectPage,
 });
+
+// Same brand palette as Customers/Deals — alternated per field so the form
+// reads as colorful without any single color dominating.
+const BRAND = {
+  blue:   "#2E5FD9",
+  orange: "#F5A623",
+  coral:  "#F0564B",
+  teal:   "#3EC8C8",
+  purple: "#8C5AC8",
+  navy:   "#1B2A5B",
+};
+
+const RAINBOW = [BRAND.blue, BRAND.purple, BRAND.coral, BRAND.orange, BRAND.teal, BRAND.navy];
 
 // Fallback used only if the live status list is empty/loading. The real list
 // comes from useProjectStatuses() — distinct values in Dim_Project.status.
@@ -50,12 +64,37 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 }
 
 // Lightweight sub-section divider inside the form — gives the flat field
-// stack some visual rhythm without heavy card nesting.
-function GroupLabel({ children }: { children: React.ReactNode }) {
+// stack some visual rhythm without heavy card nesting. Colored dot + fading
+// rule line, one brand color per section.
+function GroupLabel({ children, color }: { children: React.ReactNode; color: string }) {
   return (
     <div className="flex items-center gap-2 pt-1">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</span>
-      <div className="flex-1 h-px bg-border" />
+      <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">{children}</span>
+      <div className="flex-1 h-px" style={{ background: `linear-gradient(90deg, ${color}55, transparent)` }} />
+    </div>
+  );
+}
+
+// Colored icon-chip field row — same visual language as the client fiche's
+// breakdown headers, reused here so every input gets its own brand color
+// instead of one flat gray icon.
+function ColorField({
+  icon: Icon, label, color, required, children,
+}: {
+  icon: any; label: string; color: string; required?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <div className="size-6 rounded-md grid place-items-center shrink-0" style={{ backgroundColor: `${color}1a` }}>
+          <Icon className="size-3.5" style={{ color }} />
+        </div>
+        <label className="text-xs font-semibold text-foreground">
+          {label} {required && <span style={{ color }}>*</span>}
+        </label>
+      </div>
+      {children}
     </div>
   );
 }
@@ -133,7 +172,8 @@ function AddEmployeePopover({ onAdd, onClose }: { onAdd: (id: number, name: stri
       <div className="flex items-center justify-end gap-1.5 pt-0.5">
         <button type="button" onClick={onClose} className="h-7 px-2.5 text-xs rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">Cancel</button>
         <button type="button" onClick={() => void handleAdd()} disabled={busy}
-          className="h-7 px-3 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5">
+          style={{ background: `linear-gradient(90deg, ${BRAND.purple}, ${BRAND.blue})` }}
+          className="h-7 px-3 text-xs rounded-md text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5">
           {busy ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
           {busy ? "Adding…" : "Add employee"}
         </button>
@@ -207,7 +247,8 @@ function AddCompanyPopover({ onAdd, onClose }: { onAdd: (id: number, name: strin
         {loadingInd
           ? <div className="h-8 flex items-center px-2 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin mr-1.5" />Loading…</div>
           : <PopoverSelect options={[...industries, "__new_industry__"]} value={industry}
-              onChange={(v) => { setIndustry(v); setErr(null); }} placeholder="Select or add industry" />}
+              onChange={(v) => { setIndustry(v); setErr(null); }} placeholder="Select or add industry"
+              labels={COMPANY_FIELD_LABELS} />}
         {industry === "__new_industry__" && (
           <input type="text" value={customIndustry} onChange={(e) => { setCustomInd(e.target.value); setErr(null); }}
             placeholder="Type new industry…"
@@ -220,7 +261,8 @@ function AddCompanyPopover({ onAdd, onClose }: { onAdd: (id: number, name: strin
         {loadingHq
           ? <div className="h-8 flex items-center px-2 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin mr-1.5" />Loading…</div>
           : <PopoverSelect options={[...hqOptions, "__new_hq__"]} value={headquarters}
-              onChange={(v) => { setHeadquarters(v); setErr(null); }} placeholder="Select or add headquarters" />}
+              onChange={(v) => { setHeadquarters(v); setErr(null); }} placeholder="Select or add headquarters"
+              labels={COMPANY_FIELD_LABELS} />}
         {headquarters === "__new_hq__" && (
           <input type="text" value={customHq} onChange={(e) => { setCustomHq(e.target.value); setErr(null); }}
             placeholder="Type new headquarters…"
@@ -233,7 +275,8 @@ function AddCompanyPopover({ onAdd, onClose }: { onAdd: (id: number, name: strin
       <div className="flex items-center justify-end gap-1.5 pt-0.5">
         <button type="button" onClick={onClose} className="h-7 px-2.5 text-xs rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">Cancel</button>
         <button type="button" onClick={() => void handleAdd()} disabled={busy}
-          className="h-7 px-3 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5">
+          style={{ background: `linear-gradient(90deg, ${BRAND.teal}, ${BRAND.blue})` }}
+          className="h-7 px-3 text-xs rounded-md text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5">
           {busy ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
           {busy ? "Adding…" : "Add company"}
         </button>
@@ -287,7 +330,8 @@ function AddSectionPopover({ onAdd, onClose }: { onAdd: (code: string, name: str
       <div className="flex items-center justify-end gap-1.5 pt-0.5">
         <button type="button" onClick={onClose} className="h-7 px-2.5 text-xs rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">Cancel</button>
         <button type="button" onClick={() => void handleAdd()} disabled={busy}
-          className="h-7 px-3 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5">
+          style={{ background: `linear-gradient(90deg, ${BRAND.orange}, ${BRAND.coral})` }}
+          className="h-7 px-3 text-xs rounded-md text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5">
           {busy ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
           {busy ? "Adding…" : "Add section"}
         </button>
@@ -364,7 +408,18 @@ function CreateProjectPage() {
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto">
-      <PageHeader eyebrow="Projects" title="Log New Project" description="Owner, company and section are set here once — every task under this project inherits them." />
+      <PageHeader
+        eyebrow="Projects"
+        title="Log New Project"
+        description="Owner, company and section are set here once — every task under this project inherits them."
+        actions={
+          <div className="flex items-center gap-3">
+            <Link to="/projects/list" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="size-3.5" /> Back to projects
+            </Link>
+          </div>
+        }
+      />
 
       {loading ? (
         <div className="flex items-center justify-center gap-3 py-24 text-muted-foreground">
@@ -372,9 +427,14 @@ function CreateProjectPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-card border border-border rounded-xl shadow-[var(--shadow-card)]">
+          <div className="lg:col-span-2 bg-card border border-border rounded-xl shadow-[var(--shadow-card)] overflow-hidden">
+            {/* Decorative brand strip */}
+            <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${RAINBOW.join(", ")})` }} />
+
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-sm font-semibold">Project information</h2>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-sm font-semibold">Project information</h2>
+              </div>
               <span className="text-xs text-muted-foreground">{formData.project_name.trim() ? "Ready to create" : "Name required"}</span>
             </div>
 
@@ -384,16 +444,16 @@ function CreateProjectPage() {
                   <div className="bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2.5 rounded-lg text-sm">{error}</div>
                 )}
 
-                <Field icon={Briefcase} label="Project name" required>
+                <ColorField icon={Briefcase} label="Project name" color={BRAND.blue} required>
                   <Input className="h-10 bg-background" placeholder="e.g. Website Redesign"
                     value={formData.project_name}
                     onChange={(e) => setFormData({ ...formData, project_name: e.target.value })} />
-                </Field>
+                </ColorField>
 
-                <GroupLabel>Assignment</GroupLabel>
+                <GroupLabel color={BRAND.purple}>Assignment</GroupLabel>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field icon={Users} label="Owner">
+                  <ColorField icon={Users} label="Owner" color={BRAND.purple}>
                     <div className="relative">
                       <SelectWithAdd addLabel="owner" onAdd={() => setAddOpen("owner")}>
                         <SearchableSelect
@@ -419,9 +479,9 @@ function CreateProjectPage() {
                         />
                       )}
                     </div>
-                  </Field>
+                  </ColorField>
 
-                  <Field icon={Building2} label="Company">
+                  <ColorField icon={Building2} label="Company" color={BRAND.teal}>
                     <div className="relative">
                       <SelectWithAdd addLabel="company" onAdd={() => setAddOpen("company")}>
                         <SearchableSelect
@@ -439,9 +499,9 @@ function CreateProjectPage() {
                         />
                       )}
                     </div>
-                  </Field>
+                  </ColorField>
 
-                  <Field icon={Layers} label="Section">
+                  <ColorField icon={Layers} label="Section" color={BRAND.orange}>
                     <div className="relative">
                       <SelectWithAdd addLabel="section" onAdd={() => setAddOpen("section")}>
                         <SearchableSelect
@@ -459,9 +519,9 @@ function CreateProjectPage() {
                         />
                       )}
                     </div>
-                  </Field>
+                  </ColorField>
 
-                  <Field icon={ListChecks} label="Team">
+                  <ColorField icon={ListChecks} label="Team" color={BRAND.navy}>
                     <Select
                       value={formData.team_name || ""}
                       onValueChange={(v) => setFormData({ ...formData, team_name: v })}
@@ -475,45 +535,47 @@ function CreateProjectPage() {
                           : teamSuggestions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                  </Field>
+                  </ColorField>
                 </div>
 
-                <GroupLabel>Timeline</GroupLabel>
+                <GroupLabel color={BRAND.coral}>Timeline</GroupLabel>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Field icon={Calendar} label="Start date">
+                  <ColorField icon={Calendar} label="Start date" color={BRAND.coral}>
                     <Input type="date" className="h-10 bg-background"
                       value={formData.start_date ?? ""}
                       onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} />
-                  </Field>
-                  <Field icon={CalendarDays} label="End date">
+                  </ColorField>
+                  <ColorField icon={CalendarDays} label="End date" color={BRAND.blue}>
                     <Input type="date" className="h-10 bg-background"
                       value={formData.end_date ?? ""}
                       onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} />
-                  </Field>
-                  <Field icon={ListChecks} label="Status">
+                  </ColorField>
+                  <ColorField icon={ListChecks} label="Status" color={BRAND.teal}>
                     <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v })}>
                       <SelectTrigger className="h-10 bg-background"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {statusOptions.map((s) => <SelectItem key={s} value={s}>{prettifyStatus(s)}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                  </Field>
+                  </ColorField>
                 </div>
 
-                <GroupLabel>Details</GroupLabel>
+                <GroupLabel color={BRAND.navy}>Details</GroupLabel>
 
-                <Field icon={FileText} label="Description">
+                <ColorField icon={FileText} label="Description" color={BRAND.navy}>
                   <textarea rows={4} value={formData.description ?? ""}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="What is this project about?"
                     className="w-full px-3 py-2.5 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all" />
-                </Field>
+                </ColorField>
               </div>
 
               <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
                 <Button type="button" variant="ghost" size="sm" onClick={() => window.history.back()}>Cancel</Button>
-                <Button type="submit" size="sm" disabled={createProject.isPending}>
+                <Button type="submit" size="sm" disabled={createProject.isPending}
+                  style={{ background: `linear-gradient(90deg, ${BRAND.blue}, ${BRAND.purple})`, border: "none" }}
+                  className="text-white hover:opacity-90 transition-opacity disabled:opacity-40">
                   {createProject.isPending
                     ? <><Loader2 className="size-3.5 animate-spin" />Saving…</>
                     : <><CheckCircle2 className="size-3.5" />Create project</>}
@@ -523,8 +585,11 @@ function CreateProjectPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="bg-card border border-border rounded-xl p-5 shadow-[var(--shadow-card)] space-y-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tips</h3>
+            <div className="bg-card border border-border rounded-xl p-5 shadow-[var(--shadow-card)] space-y-4 border-t-4" style={{ borderTopColor: BRAND.purple }}>
+              <div className="flex items-center gap-2">
+                <Sparkles className="size-3.5" style={{ color: BRAND.purple }} />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tips</h3>
+              </div>
               <ul className="space-y-3 text-xs text-muted-foreground leading-relaxed">
                 <li>Owner, company and section set here apply to every task logged under this project — you won't set them again per-task.</li>
                 <li>Company is a shared pool with Deals — search first before adding a new one to avoid duplicates.</li>

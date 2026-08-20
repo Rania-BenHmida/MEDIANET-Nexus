@@ -59,14 +59,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Medianet Intelligence" },
+      { title: "Medianet NEXUS" },
       {
         name: "description",
         content:
           "AI-powered customer intelligence platform — unified Power BI dashboards for projects, customers, and deals.",
       },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/png", href: "/data/images/favicon-mark-square-transparent.png" },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,

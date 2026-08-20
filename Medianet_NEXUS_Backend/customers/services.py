@@ -10,6 +10,173 @@
 
 from db import get_warehouse_conn, release_warehouse_conn
 
+
+
+
+# ── Replace get_b2b_stats() in customers/services.py with this version ─────
+#
+# Year attribution: a subscription's ARR is counted in the year its
+# ID_Start_Date falls in — i.e. this is "ARR booked in 2025", not "ARR still
+# being earned in 2025" (which would need an active-during-year overlap
+# check against ID_Start_Date/ID_End_Date instead). Booked-in-year is the
+# simpler, more common way to report this and is what's implemented below.
+
+# ── Replace get_b2b_stats() in customers/services.py with this version ─────
+#
+# Revenue metric changed from "this year vs last year" to "accumulated total
+# vs what was added this year": ARR is booked-and-done revenue that doesn't
+# reset each year, so a running total + this year's new contribution reads
+# more naturally than a YoY delta on an accumulating number.
+#
+# Accumulated  = SUM(annual_amount) across every subscription, no date filter.
+# Added(YEAR)  = SUM(annual_amount) for subs whose ID_Start_Date falls in YEAR
+#                — start date, not churn date: churn date marks revenue
+#                LEAVING, not being added.
+
+YEAR_ADDED = 2026
+
+def get_b2b_stats() -> dict:
+    """
+    GET /api/customers/b2b/stats/ — KPI cards for the B2B tab of the
+    Customer Analytics page.
+    """
+    conn = get_warehouse_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                        SELECT
+                            COUNT(DISTINCT "ID_Company")                AS total_companies,
+                            COUNT(*)                                    AS total_subs,
+                            COUNT(*) FILTER (WHERE "Churn_flag" = true) AS churned_subs
+                        FROM public."Fact_Subscription"
+                        """)
+            sub_row = cur.fetchone()
+
+            cur.execute("""
+                        SELECT
+                            COALESCE(SUM(fs."annual_amount"), 0) AS arr_accumulated,
+                            COALESCE(SUM(fs."annual_amount") FILTER (WHERE dd."year" = %s), 0) AS arr_added
+                        FROM public."Fact_Subscription" fs
+                                 LEFT JOIN public."Dim_Date" dd ON fs."ID_Churn_Date" = dd."ID_Date"
+                        """, (YEAR_ADDED,))
+            arr_row = cur.fetchone()
+
+            cur.execute("""
+                        SELECT
+                            COUNT(*)                                          AS total_tickets,
+                            COUNT(*) FILTER (WHERE "escalation_flag" = true)  AS escalated_tickets
+                        FROM public."Fact_Ticket"
+                        """)
+            tix_row = cur.fetchone()
+
+            # Per-company rows needed to replicate the Loyalty Score tiering
+            # (Company Loyalty DAX table) for the Fidelity Rate.
+            cur.execute("""
+                        SELECT "ID_Company", "Churn_flag", "tenure_months", "upgrade_flag",
+                               "downgrade_flag", "is_trial", "auto_renew_flag", "total_usage_events"
+                        FROM public."Fact_Subscription"
+                        """)
+            all_subs = cur.fetchall()
+    finally:
+        release_warehouse_conn(conn)
+
+    total_companies = int(sub_row["total_companies"])
+    total_subs      = int(sub_row["total_subs"])
+    churned_subs    = int(sub_row["churned_subs"])
+
+    arr_accumulated = float(arr_row["arr_accumulated"])
+    arr_added       = float(arr_row["arr_added"])
+
+    total_tickets     = int(tix_row["total_tickets"])
+    escalated_tickets = int(tix_row["escalated_tickets"])
+
+    # Group subscription rows by company, then reuse the exact same
+    # scoring function the fiche client uses — one source of truth.
+    by_company: dict[int, list[dict]] = {}
+    for row in all_subs:
+        by_company.setdefault(row["ID_Company"], []).append(dict(row))
+
+    company_usage_totals = [
+        sum((s["total_usage_events"] or 0) for s in subs)
+        for subs in by_company.values()
+    ]
+    max_company_usage = max(company_usage_totals) if company_usage_totals else 0
+
+    fidelity_count = 0
+    for subs in by_company.values():
+        scoring = _score_subscriptions(subs, max_company_usage)
+        if scoring["health"]["tier"] in ("Ambassador", "Established"):
+            fidelity_count += 1
+
+    return {
+        "totalCompanies":   total_companies,
+        "arrAccumulated":   arr_accumulated,
+        "arrAdded":         arr_added,
+        "arrYear":          YEAR_ADDED,
+        "churnRate":        round(100 * churned_subs / total_subs, 1) if total_subs else 0,
+        "fidelityRate":     round(100 * fidelity_count / total_companies, 1) if total_companies else 0,
+        "escalatedTickets": escalated_tickets,
+    }
+
+# ── Add to customers/services.py ────────────────────────────────────────────
+
+def get_b2c_stats() -> dict:
+    """
+    GET /api/customers/b2c/stats/ — KPI cards for the B2C tab of the
+    Customer Analytics page.
+
+    Mirrors real measures from Dashboard_Churn.pbix:
+      - Customer Count       -> DISTINCTCOUNT(Fact_Churn[ID_Customer])
+      - Total Revenue        -> SUM(Total_Revenue)
+      - Churn Rate           -> Churned Customers / Customer Count
+      - Average CLTV         -> AVERAGE(CLTV)
+      - Churned Revenue Rate -> Churn Revenue / Total Revenue — revenue-
+                                weighted churn, distinct from the customer-
+                                count-weighted Churn Rate above (can diverge
+                                a lot if high-value customers churn at a
+                                different rate than everyone else)
+      - At-Risk Customers    -> not yet churned, Churn_Score >= 70 — same
+                                threshold as the "Health Tier" calculated
+                                column (Churned / At Risk / Watch / Healthy)
+    """
+    conn = get_warehouse_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                        SELECT
+                            COUNT(DISTINCT fc."ID_Customer")                        AS total_customers,
+                            COALESCE(SUM(fc."Total_Revenue"), 0)                    AS total_revenue,
+                            COALESCE(SUM(fc."Total_Revenue") FILTER (
+                                WHERE ds."Churn_Value" = true
+                            ), 0)                                                   AS churn_revenue,
+                            COALESCE(AVG(fc."CLTV"), 0)                             AS avg_cltv,
+                            COUNT(DISTINCT fc."ID_Customer") FILTER (
+                                WHERE ds."Churn_Value" = true
+                            )                                                       AS churned_customers,
+                            COUNT(DISTINCT fc."ID_Customer") FILTER (
+                                WHERE ds."Churn_Value" = false AND fc."Churn_Score" >= 70
+                            )                                                       AS at_risk_customers
+                        FROM public."Fact_Churn" fc
+                                 JOIN public."Dim_Status" ds ON fc."ID_Status" = ds."ID_Status"
+                        """)
+            row = cur.fetchone()
+    finally:
+        release_warehouse_conn(conn)
+
+    total_customers   = int(row["total_customers"])
+    churned_customers = int(row["churned_customers"])
+    total_revenue      = float(row["total_revenue"])
+    churn_revenue       = float(row["churn_revenue"])
+
+    return {
+        "totalCustomers":    total_customers,
+        "totalRevenue":      total_revenue,
+        "avgCltv":           round(float(row["avg_cltv"]), 1),
+        "churnRate":         round(100 * churned_customers / total_customers, 1) if total_customers else 0,
+        "churnRevenueRate":  round(100 * churn_revenue / total_revenue, 1) if total_revenue else 0,
+        "atRiskCustomers":   int(row["at_risk_customers"]),
+    }
+
 def get_customers_list() -> list[dict]:
     """
     GET /api/customers/  — lightweight list for the CRM-style listing page.

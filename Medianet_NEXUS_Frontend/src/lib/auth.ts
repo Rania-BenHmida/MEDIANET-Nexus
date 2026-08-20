@@ -30,13 +30,46 @@ export const auth = betterAuth({
       create: {
         after: async (createdUser) => {
           const { db } = await import("./db");
-          const { profiles } = await import("./db/schema");
+          const { profiles, userRoles, user } = await import("./db/schema");
 
           await db.insert(profiles).values({
             id: createdUser.id,
             displayName: createdUser.name ?? null,
             avatarUrl: createdUser.image ?? null,
           });
+
+          // Best-effort: tell everyone who can act on it — it_specialist AND
+          // superadmin, same pairing as SECTION_ACCESS.roles in roles.ts —
+          // that a new account is waiting on a role. Wrapped so a
+          // Django/SMTP hiccup never blocks signup — the account is already
+          // created above regardless of this.
+          try {
+            const { inArray } = await import("drizzle-orm");
+            const specialistRoleRows = await db
+              .select({ userId: userRoles.userId })
+              .from(userRoles)
+              .where(inArray(userRoles.role, ["it_specialist", "superadmin"]));
+
+            if (specialistRoleRows.length > 0) {
+              const specialistIds = specialistRoleRows.map((r) => r.userId);
+              const specialists = await db
+                .select({ email: user.email })
+                .from(user)
+                .where(inArray(user.id, specialistIds));
+              const recipients = specialists.map((s) => s.email).filter(Boolean);
+
+              if (recipients.length > 0) {
+                const { sendAccountEmail } = await import("./api/accounts");
+                await sendAccountEmail({
+                  event: "new_signup",
+                  recipients,
+                  context: { name: createdUser.name ?? "New user", email: createdUser.email },
+                });
+              }
+            }
+          } catch (err) {
+            console.warn("[auth] Failed to notify IT specialists of new signup:", err);
+          }
         },
       },
     },
@@ -45,6 +78,8 @@ export const auth = betterAuth({
   trustedOrigins: [
   "http://localhost:5173",
   "http://localhost:3000",
+  "http://medianet-nexus.local:5173",
+  "https://medianet-nexus.local:5173",
   ...(process.env.APP_URL ? [process.env.APP_URL] : []),
 ],
 });

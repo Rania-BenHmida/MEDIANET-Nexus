@@ -16,6 +16,9 @@ dist-ssr
 .nitro
 *.local
 
+# Local TLS certs (mkcert) — machine-specific, never commit
+certs/
+ 
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

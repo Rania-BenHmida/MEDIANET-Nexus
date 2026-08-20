@@ -10,7 +10,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-9=s2b*0d4l$p)8kvomw
 
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "nflsnhl4-8000.euw.devtunnels.ms"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "medianet-nexus.local"]
 
 INSTALLED_APPS = [
     "rest_framework",
@@ -21,6 +21,11 @@ INSTALLED_APPS = [
     "Gen_BI",
     "customers",
     "surveys",
+    "insights",
+    "talend",
+    "dashboard",
+    "accounts",
+
 ]
 
 MIDDLEWARE = [
@@ -28,7 +33,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
 ]
 
-CORS_ALLOWED_ORIGINS = ["http://localhost:8080", "http://localhost:5173", "https://nflsnhl4-5173.euw.devtunnels.ms"]
+CORS_ALLOWED_ORIGINS = ["http://localhost:8080", "http://localhost:5173", "http://medianet-nexus.local:5173","https://medianet-nexus.local:5173",]
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
@@ -45,6 +50,12 @@ TEMPLATES = [
         },
     },
 ]
+
+from pathlib import Path
+
+TALEND_JOB_DIR = Path(r"D:\Projet_pfe\Talend Job\Data_Master")
+TALEND_JOB_PATH = str(TALEND_JOB_DIR / "Data_Master_run.bat")
+TALEND_LAST_RUN_FILE = BASE_DIR / "talend_last_run.json"
 
 def _parse_db(url: str) -> dict:
     from urllib.parse import urlparse
@@ -89,6 +100,11 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 
 # Used to build the public survey link (FRONTEND_URL/survey/<token>) sent in the email.
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+
+
+# Shared secret the Node/Better-Auth side must send (X-Internal-Key header)
+# to call accounts/send-account-email/ — see accounts/views.py.
+INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"

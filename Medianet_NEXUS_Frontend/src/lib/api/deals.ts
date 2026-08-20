@@ -6,6 +6,7 @@ export type DealsStats = {
   avgCustomerLifetimeValue: number;
   winRate: number;
   uniqueClients: number;
+  avgSalesCycleDays: number | null;
   pipelineValueChange: number;
   winRateChange: number;
 };

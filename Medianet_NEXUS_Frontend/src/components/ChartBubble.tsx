@@ -9,20 +9,20 @@ import {
 import { Download } from "lucide-react";
 import type { GenbiChart } from "@/lib/api";
 
-// Explicit, vivid palette. Self-contained hex values so colors render reliably
-// regardless of how CSS variables are defined in the theme (Tailwind v4 stores
-// --primary as raw channels, which recharts can't consume directly).
+// Brand palette — same six colors used across Projects/Deals/Customers,
+// extended with lighter tints so a 10-category chart still has enough
+// distinct slots without repeating a color too soon.
 const COLORS = [
-  "#6366f1", // indigo
-  "#0ea5e9", // sky
-  "#22c55e", // green
-  "#f59e0b", // amber
-  "#ef4444", // red
-  "#a855f7", // purple
-  "#ec4899", // pink
-  "#14b8a6", // teal
-  "#f97316", // orange
-  "#84cc16", // lime
+  "#2E5FD9", // blue
+  "#F5A623", // orange
+  "#F0564B", // coral
+  "#3EC8C8", // teal
+  "#8C5AC8", // purple
+  "#1B2A5B", // navy
+  "#6E8EE8", // blue tint
+  "#F7C05E", // orange tint
+  "#F58880", // coral tint
+  "#7CDBDB", // teal tint
 ];
 
 const AXIS = "#94a3b8";   // slate-400, readable on light & dark
@@ -123,7 +123,8 @@ export function ChartBubble({ chart }: { chart: GenbiChart }) {
           <p className="text-[11px] font-medium text-muted-foreground truncate">{title}</p>
           {logScale && (
             <span
-              className="shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600"
+              className="shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: "#F5A62326", color: "#B9760E" }}
               title="Values span a wide range, so the vertical axis uses a logarithmic scale to keep small bars visible. Bar heights are not linearly comparable."
             >
               LOG
@@ -146,8 +147,8 @@ export function ChartBubble({ chart }: { chart: GenbiChart }) {
             <LineChart data={data} margin={{ top: 5, right: 8, left: -12, bottom: 0 }}>
               <defs>
                 <linearGradient id="lineStroke" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#6366f1" />
-                  <stop offset="100%" stopColor="#0ea5e9" />
+                  <stop offset="0%" stopColor="#2E5FD9" />
+                  <stop offset="100%" stopColor="#3EC8C8" />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
@@ -159,8 +160,8 @@ export function ChartBubble({ chart }: { chart: GenbiChart }) {
                 dataKey={y}
                 stroke="url(#lineStroke)"
                 strokeWidth={3}
-                dot={{ r: 3, fill: "#6366f1", strokeWidth: 0 }}
-                activeDot={{ r: 5, fill: "#0ea5e9" }}
+                dot={{ r: 3, fill: "#2E5FD9", strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: "#3EC8C8" }}
               />
             </LineChart>
           ) : type === "pie" ? (

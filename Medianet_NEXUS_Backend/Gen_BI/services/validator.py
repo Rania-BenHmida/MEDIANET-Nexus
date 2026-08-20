@@ -52,11 +52,13 @@ def validate_sql(sql: str) -> tuple[bool, str]:
       - single statement (a trailing ';' is tolerated; any interior ';'
         is treated as statement-chaining and rejected)
       - parses as PostgreSQL
-      - root node is SELECT (blocks INSERT/UPDATE/DELETE/DROP/etc.)
+      - root node is SELECT or a UNION of SELECTs (blocks INSERT/UPDATE/DELETE/DROP/etc.)
       - every referenced schema is in ALLOWED_SCHEMAS
-      - every referenced table is in the whitelist
+      - every referenced REAL table is in the whitelist (CTEs defined via
+        WITH ... AS (...) are exempt — see note below)
     """
     sql = sql.strip()
+
     if not sql:
         return False, "Empty SQL statement"
 
@@ -75,11 +77,32 @@ def validate_sql(sql: str) -> tuple[bool, str]:
     except ParseError as e:
         return False, f"SQL parsing error: {str(e)}"
 
-    if not ast or ast.key.upper() != "SELECT":
+    if not ast:
         return False, "Only SELECT queries are allowed"
+
+    # A UNION ALL query (used by the MULTI-DOMAIN SUMMARIES pattern) parses
+    # with a root node of type Union, not Select, even though every branch
+    # underneath it is a SELECT — SQL's grammar doesn't allow anything other
+    # than SELECT statements inside a UNION anyway, so accepting a Union root
+    # here doesn't weaken the SELECT-only guarantee at all.
+    if not isinstance(ast, (sqlglot.exp.Select, sqlglot.exp.Union)):
+        return False, "Only SELECT queries are allowed"
+
+    # A CTE ("WITH stage_win_rate AS (...) SELECT ... FROM stage_win_rate")
+    # is a query-local, temporary relation — not a real warehouse table. But
+    # sqlglot parses its usage in FROM/JOIN as an exp.Table node exactly like
+    # a real table reference, with no built-in way to tell them apart at that
+    # node alone. Without this exclusion, ANY query using a CTE gets rejected
+    # as an unknown table the moment its name doesn't happen to collide with
+    # a real one — which blocks a normal, encouraged pattern (e.g. the
+    # historical-win-rate-by-stage CTE from B2B LOYALTY / CHURN-RISK SCORING
+    # and win-likelihood questions in general), not just an edge case.
+    cte_names = {cte.alias for cte in ast.find_all(sqlglot.exp.CTE)}
 
     referenced_tables = set()
     for table in ast.find_all(sqlglot.exp.Table):
+        if table.name in cte_names:
+            continue
         schema_name = table.db or "public"
         if schema_name.lower() not in ALLOWED_SCHEMAS:
             return False, f"Access to schema '{schema_name}' is not allowed"

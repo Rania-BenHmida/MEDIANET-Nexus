@@ -1,4 +1,3 @@
-
 export type EmbedReport = {
   id: string;
   title: string;
@@ -7,31 +6,32 @@ export type EmbedReport = {
   embedUrl: string;
 };
 
-export type EmbedSection = "projects" | "customers" | "deals" ;
+export type EmbedSection = "projects" | "customersB2B" | "customersB2C" | "deals";
 
 export const EMBEDS: Record<EmbedSection, EmbedReport[]> = {
-  
+
   projects: [
     {
       id: "project-progress",
       title: "Project Progress & Milestones",
       description: "Live status of active projects, tasks, and deadlines.",
-      embedUrl: "https://app.powerbi.com/reportEmbed?reportId=99ee2b0e-663b-43a1-8368-f9140e08d669&autoAuth=true&ctid=604f1a96-cbe8-43f8-abbf-f8eaf5d85730",
+      embedUrl: "https://app.powerbi.com/reportEmbed?reportId=c00acb93-7c0c-42ee-a091-a1fe375558fe&autoAuth=true&ctid=604f1a96-cbe8-43f8-abbf-f8eaf5d85730",
     },
-    
   ],
-  customers: [
+  customersB2B: [
     {
       id: "customer-360",
       title: "Customer 360°",
-      description: "B2B & B2C activity, Loyalty, and Upselling.",
-      embedUrl: "https://app.powerbi.com/reportEmbed?reportId=b3c9d338-cc52-4c80-88a6-f00942942867&autoAuth=true&ctid=604f1a96-cbe8-43f8-abbf-f8eaf5d85730",
+      description: "B2B activity, Loyalty, and Upselling.",
+      embedUrl: "https://app.powerbi.com/reportEmbed?reportId=9680906d-2ae0-4c58-8709-2c42e5ce6084&autoAuth=true&ctid=604f1a96-cbe8-43f8-abbf-f8eaf5d85730",
     },
+  ],
+  customersB2C: [
     {
       id: "churn",
       title: "Churn Analytics",
       description: "Churn risk and retention cohorts.",
-      embedUrl: "https://app.powerbi.com/reportEmbed?reportId=b523e49b-5619-4aae-bcb4-e5b4dc462362&autoAuth=true&ctid=604f1a96-cbe8-43f8-abbf-f8eaf5d85730",
+      embedUrl: "https://app.powerbi.com/reportEmbed?reportId=1be04aef-434d-4fbe-8972-256075378937&autoAuth=true&ctid=604f1a96-cbe8-43f8-abbf-f8eaf5d85730",
     },
   ],
   deals: [
@@ -39,7 +39,7 @@ export const EMBEDS: Record<EmbedSection, EmbedReport[]> = {
       id: "pipeline",
       title: "Deal Pipeline",
       description: "Active deals by stage and probability.",
-      embedUrl: "https://app.powerbi.com/reportEmbed?reportId=61d51029-8803-4b92-a0e1-7b94858397ad&autoAuth=true&ctid=604f1a96-cbe8-43f8-abbf-f8eaf5d85730",
+      embedUrl: "https://app.powerbi.com/reportEmbed?reportId=6c7ba3f3-7901-470e-b21c-b31557c81e87&autoAuth=true&ctid=604f1a96-cbe8-43f8-abbf-f8eaf5d85730",
     },
   ],
 };

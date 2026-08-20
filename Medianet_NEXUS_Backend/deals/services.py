@@ -33,6 +33,15 @@ def _iso(value):
 # ── Stats (warehouse) ─────────────────────────────────────────────────────────
 
 def get_deals_stats() -> dict:
+    """
+    GET /api/deals/stats/ — KPI cards for the Deals page.
+
+    avgSalesCycleDays mirrors the "Avg SCL" DAX measure from
+    Dashboard_opportunities-PY_version.pbix: for Won deals, the average
+    number of days between ID_Engage_Date and ID_Close_Date (both resolved
+    through Dim_Date, since Fact_Opportunity stores them as integer date
+    keys — YYYYMMDD — not native date columns).
+    """
     conn = get_warehouse_conn()
     try:
         with conn.cursor() as cur:
@@ -67,14 +76,23 @@ def get_deals_stats() -> dict:
                             unique_clients AS (
                                 SELECT COUNT(DISTINCT o."ID_Company") AS unique_companies
                                 FROM public."Fact_Opportunity" o
+                            ),
+                            avg_scl AS (
+                                SELECT AVG(dc."date_value"::date - de."date_value"::date) AS avg_days
+                                FROM public."Fact_Opportunity" o
+                                         JOIN public."Dim_Stage" s  ON o."ID_Stage"       = s."ID_Stage"
+                                         JOIN public."Dim_Date"  de ON o."ID_Engage_Date" = de."ID_Date"
+                                         JOIN public."Dim_Date"  dc ON o."ID_Close_Date"  = dc."ID_Date"
+                                WHERE s."Is_Won" = true
                             )
                         SELECT
                             all_deals.total_pipeline_value,
                             open_deals.open_count,
                             closed_deals.avg_won_value,
                             win_rate.win_rate,
-                            unique_clients.unique_companies
-                        FROM all_deals, open_deals, closed_deals, win_rate, unique_clients
+                            unique_clients.unique_companies,
+                            avg_scl.avg_days
+                        FROM all_deals, open_deals, closed_deals, win_rate, unique_clients, avg_scl
                         """)
             row = cur.fetchone()
             return {
@@ -83,6 +101,7 @@ def get_deals_stats() -> dict:
                 "avgCustomerLifetimeValue": float(row["avg_won_value"]),
                 "winRate":                  round(float(row["win_rate"]), 1),
                 "uniqueClients":            int(row["unique_companies"]),
+                "avgSalesCycleDays":        round(float(row["avg_days"])) if row["avg_days"] is not None else None,
                 "pipelineValueChange":      0,
                 "winRateChange":            0,
             }

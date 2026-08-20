@@ -151,13 +151,13 @@ def _extract_label(raw: str) -> str | None:
 
 # ── Conversational reply for non-data messages ───────────────────────────────
 
-_REPLY_SYSTEM_EN = """You are Medianet AI, a friendly Customer Success BI assistant.
+_REPLY_SYSTEM_EN = """You are Medianaute, a friendly Customer Success BI assistant.
 The user sent a greeting or small-talk message — NOT a data request.
 Reply briefly and warmly in English (1-2 sentences). If it fits, gently remind
 them you can answer questions about customers, deals, projects, tasks, and support.
 Do not invent data. Do not output SQL."""
 
-_REPLY_SYSTEM_FR = """Tu es Medianet AI, un assistant BI Customer Success sympathique.
+_REPLY_SYSTEM_FR = """Tu es Medianaute, un assistant BI Customer Success sympathique.
 L'utilisateur a envoyé une salutation ou un message de conversation — PAS une
 demande de données. Réponds brièvement et chaleureusement en français (1-2 phrases).
 Si c'est pertinent, rappelle-lui que tu peux répondre à des questions sur les clients,
@@ -187,6 +187,11 @@ def conversational_reply(question: str, lang: str, history: list[dict] | None = 
 
 _ANSI_RE = re.compile(r"\x1b?\[[0-9;]*m")          # real ESC sequences
 _ANSI_TEXT_RE = re.compile(r"\[\d+m")               # de-escaped leftovers like "[4m"
+# Blanket fallback: any raw ASCII control byte except newline/tab. Reasoning
+# models (gpt-oss family, seen via the Groq fallback) have leaked escape-code
+# variants that do not match the two specific patterns above cleanly -- this
+# catches the underlying byte class instead of one exact shape.
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _REASONING_TAGS = re.compile(
     r"<\s*/?\s*(think|thinking|reasoning|analysis)\s*>", re.IGNORECASE
 )
@@ -206,6 +211,7 @@ def _clean(text: str) -> str:
     """
     if not text:
         return ""
+    text = _CONTROL_CHARS_RE.sub("", text)
     text = _ANSI_RE.sub("", text)
     text = _ANSI_TEXT_RE.sub("", text)
     text = _REASONING_TAGS.sub("", text)

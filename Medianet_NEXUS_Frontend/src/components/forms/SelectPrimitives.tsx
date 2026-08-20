@@ -78,18 +78,34 @@ export function PopoverShell({
 // ── Mini select inside popovers ───────────────────────────────────────────────
 
 export function PopoverSelect({
-  options, value, onChange, placeholder,
+  options, value, onChange, placeholder, labels,
 }: {
   options: string[]; value: string; onChange: (v: string) => void; placeholder: string;
+  // Optional per-value display overrides, e.g. { __new_industry__: "＋ Add new industry…" }.
+  // Falls back to the raw option string when a value has no override, so
+  // existing callers that don't pass this prop keep behaving exactly as
+  // before.
+  labels?: Record<string, string>;
 }) {
+  // Sentinel "add new…" options (by convention prefixed "__new_") are
+  // pinned to the top of the list instead of sitting wherever insertion
+  // order/alphabetical order happens to put them — they're an action, not
+  // a data value, so they should always be the first thing you see.
+  const sorted = [...options].sort((a, b) => {
+    const aNew = a.startsWith("__new_");
+    const bNew = b.startsWith("__new_");
+    if (aNew === bNew) return 0;
+    return aNew ? -1 : 1;
+  });
+
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="h-8 text-xs bg-background">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o} value={o} className="text-xs">{o}</SelectItem>
+        {sorted.map((o) => (
+          <SelectItem key={o} value={o} className="text-xs">{labels?.[o] ?? o}</SelectItem>
         ))}
       </SelectContent>
     </Select>

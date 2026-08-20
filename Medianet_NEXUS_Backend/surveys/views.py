@@ -1,6 +1,7 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.http import HttpResponse
 from . import services
 
 
@@ -102,6 +103,48 @@ def question_detail(request, question_id: int):
     return Response(result, status=status.HTTP_200_OK)
 
 
+# ── Prepare Survey ────────────────────────────────────────────────────
+
+@api_view(["GET"])
+def companies_with_subs(request):
+    """GET /api/surveys/companies-with-subs/ — company picker for Prepare
+    Survey, restricted to companies that actually have a subscription."""
+    try:
+        return Response(services.list_companies_with_subs())
+    except Exception as e:
+        return _err(e)
+
+
+@api_view(["POST"])
+def prepare_survey(request, code_company: str):
+    """POST /api/surveys/prepare/<code_company>/   body: {regenerate?: bool}
+    Stage 1: assembles (or returns the existing) BASE prepared draft for
+    this company — default + industry questions only, industry auto-
+    resolved, no manual choice."""
+    try:
+        data = services.prepare_survey_for_company(
+            code_company, regenerate=bool(request.data.get("regenerate", False))
+        )
+        return Response(data)
+    except Exception as e:
+        return _err(e)
+
+
+@api_view(["POST"])
+def prepare_survey_ai_questions(request, code_company: str):
+    """POST /api/surveys/prepare/<code_company>/ai-questions/
+    Stage 2: appends AI-generated questions (grounded in subscription
+    history) to the already-prepared base draft. Re-running replaces the
+    previous AI batch rather than duplicating it. Requires Stage 1 first."""
+    try:
+        data = services.add_ai_questions_to_prepared_survey(code_company)
+        return Response(data)
+    except ValueError as e:
+        return _err(str(e), status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return _err(e)
+
+
 # ── Client contacts ──────────────────────────────────────────────────
 
 @api_view(["GET", "POST"])
@@ -144,12 +187,13 @@ def contact_detail(request, contact_id: int):
 
 @api_view(["POST"])
 def send_survey(request):
-    """POST /api/surveys/send/   body: {template_id, contact_id, expires_in_days?}"""
+    """POST /api/surveys/send/   body: {template_id, contact_id, expires_in_days?, sent_by_email?}"""
     try:
         data = services.create_and_send_survey(
             template_id=request.data["template_id"],
             contact_id=request.data["contact_id"],
             expires_in_days=request.data.get("expires_in_days", 14),
+            sent_by_email=request.data.get("sent_by_email", ""),
         )
         return Response(data, status=status.HTTP_201_CREATED)
     except KeyError as e:
@@ -171,9 +215,21 @@ def company_surveys(request, code_company: str):
         return _err(e)
 
 
-@api_view(["GET"])
+@api_view(["GET", "DELETE"])
 def survey_detail(request, survey_id: int):
-    """GET /api/surveys/<survey_id>/ — full detail incl. every Q&A + verdict."""
+    """
+    GET    /api/surveys/<survey_id>/ — full detail incl. every Q&A + verdict.
+    DELETE /api/surveys/<survey_id>/ — hard delete (SurveyResponse and
+      SurveyVerdict are both CASCADE off Survey, so this also removes the
+      full response history and verdict for this survey). Used for manual
+      cleanup from the Client Feedback page, and by the quarterly
+      cleanup_old_surveys management command.
+    """
+    if request.method == "DELETE":
+        ok = services.delete_survey(survey_id)
+        if not ok:
+            return Response({"error": "Survey not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
     data = services.get_survey_full_detail(survey_id)
     if data is None:
         return Response({"error": "Survey not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -182,9 +238,15 @@ def survey_detail(request, survey_id: int):
 
 @api_view(["POST"])
 def survey_verdict(request, survey_id: int):
-    """POST /api/surveys/<survey_id>/verdict/ — (re)run the AI verdict/scoring engine."""
+    """POST /api/surveys/<survey_id>/verdict/   body: {recipient_email?}
+    (Re)run the AI verdict/scoring engine. recipient_email, if provided,
+    should be the current logged-in user's email (frontend knows this,
+    Django doesn't) — the next-steps report email goes there instead of
+    falling back to whoever originally sent the survey."""
     try:
-        data = services.generate_survey_verdict(survey_id)
+        data = services.generate_survey_verdict(
+            survey_id, recipient_email=request.data.get("recipient_email") or None
+        )
         if data is None:
             return Response({"error": "Survey not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(data)
@@ -192,6 +254,20 @@ def survey_verdict(request, survey_id: int):
         return _err(str(e), status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return _err(e)
+
+
+@api_view(["GET"])
+def survey_report_pdf(request, survey_id: int):
+    """GET /api/surveys/<survey_id>/report/ — regenerates and returns the
+    next-steps PDF report as a download, the same file that gets emailed
+    whenever a verdict is (re)generated."""
+    result = services.get_survey_report_pdf(survey_id)
+    if result is None:
+        return Response({"error": "No ready verdict/report available for this survey."}, status=status.HTTP_404_NOT_FOUND)
+    filename, pdf_bytes = result
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 # ── Public survey (no auth — this is the client's side) ────────────────
@@ -268,3 +344,17 @@ def delete_notification(request, notification_id: int):
 def delete_all_notifications(request):
     count = services.delete_all_notifications()
     return Response({"deleted": count})
+
+
+# ── Survey cleanup audit trail ───────────────────────────────────────────
+
+@api_view(["GET"])
+def cleanup_runs_list(request):
+    """GET /api/surveys/cleanup-runs/?limit=50 — history of
+    cleanup_old_surveys executions (real deletes + dry runs), for the
+    Client Feedback page's audit panel."""
+    try:
+        limit = int(request.query_params.get("limit", 50))
+    except ValueError:
+        limit = 50
+    return Response(services.list_cleanup_runs(limit=limit))

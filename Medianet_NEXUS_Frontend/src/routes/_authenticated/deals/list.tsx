@@ -19,7 +19,7 @@ import {
 import {
   Plus, Search, Loader2, ChevronUp, ChevronDown, ChevronsUpDown,
   CircleDot, CheckCircle2, XCircle, Trash2, Pencil, AlertTriangle, X,
-  Inbox,
+  Inbox, Home,
   MapPin, Users, Building2, Tag, Calendar, CalendarDays, DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +27,18 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/deals/list")({
   component: DealsListPage,
 });
+
+// Same brand palette as deals/create.tsx — reused here so table columns and
+// form fields for the same concept (Agent, Company, Stage, dates, value)
+// carry the same color, tying the two pages together visually.
+const BRAND = {
+  blue:   "#2E5FD9",
+  orange: "#F5A623",
+  coral:  "#F0564B",
+  teal:   "#3EC8C8",
+  purple: "#8C5AC8",
+  navy:   "#1B2A5B",
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -42,17 +54,21 @@ function fmtDate(d: string | null | undefined) {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-// Curated, high-signal palette for open-pipeline stages — won/lost are
-// handled separately below since they carry semantic meaning (good/bad).
+// Curated palette for open-pipeline stages, built from the exact same
+// BRAND hex set as deals/create.tsx — won/lost are handled separately
+// below since they carry semantic meaning (good/bad), not brand identity.
+// Same 8 slots, same order, as the previous Tailwind version — only the
+// hues changed, so stage→color assignment (via hashToIndex/overrides
+// below) is byte-for-byte identical to before.
 const STAGE_PALETTE = [
-  { bg: "bg-sky-500/10",      text: "text-sky-600 dark:text-sky-400",         border: "border-sky-500/20",      dot: "bg-sky-500" },
-  { bg: "bg-violet-500/10",   text: "text-violet-600 dark:text-violet-400",   border: "border-violet-500/20",   dot: "bg-violet-500" },
-  { bg: "bg-amber-500/10",    text: "text-amber-600 dark:text-amber-400",     border: "border-amber-500/20",    dot: "bg-amber-500" },
-  { bg: "bg-orange-500/10",   text: "text-orange-600 dark:text-orange-400",   border: "border-orange-500/20",   dot: "bg-orange-500" },
-  { bg: "bg-cyan-500/10",     text: "text-cyan-600 dark:text-cyan-400",       border: "border-cyan-500/20",     dot: "bg-cyan-500" },
-  { bg: "bg-fuchsia-500/10",  text: "text-fuchsia-600 dark:text-fuchsia-400", border: "border-fuchsia-500/20",  dot: "bg-fuchsia-500" },
-  { bg: "bg-indigo-500/10",   text: "text-indigo-600 dark:text-indigo-400",   border: "border-indigo-500/20",   dot: "bg-indigo-500" },
-  { bg: "bg-teal-500/10",     text: "text-teal-600 dark:text-teal-400",       border: "border-teal-500/20",     dot: "bg-teal-500" },
+  BRAND.blue,   // 0
+  BRAND.purple, // 1
+  BRAND.orange, // 2
+  BRAND.coral,  // 3
+  BRAND.teal,   // 4
+  BRAND.navy,   // 5
+  BRAND.purple, // 6 — fallback slot for unlisted stages, reuses purple
+  BRAND.orange, // 7 — fallback slot for unlisted stages, reuses orange
 ];
 
 // Preferred fixed assignments for common stage names, so colors stay
@@ -60,11 +76,11 @@ const STAGE_PALETTE = [
 // not listed falls back to a deterministic hash into STAGE_PALETTE, so
 // brand-new custom stages still get a consistent color every time.
 const STAGE_COLOR_OVERRIDES: Record<string, number> = {
-  prospecting:   0, // sky
-  engaging:      1, // violet
-  qualification: 2, // amber
-  negotiation:   3, // orange
-  proposal:      4, // cyan
+  prospecting:   0, // blue
+  engaging:      1, // purple
+  qualification: 2, // orange
+  negotiation:   3, // coral
+  proposal:      4, // teal
 };
 
 function hashToIndex(s: string, mod: number) {
@@ -73,11 +89,27 @@ function hashToIndex(s: string, mod: number) {
   return h % mod;
 }
 
+// Pure color lookup shared by the badge and the row's left-border accent —
+// exact same rule stageBadge already used, just factored out so both places
+// stay in sync automatically. "won"/"lost" return semantic colors, open
+// stages return the brand hue from STAGE_PALETTE. No behavior change.
+function getStageColor(stage: string | null, isWon: boolean | null): string {
+  if (!stage) return "transparent";
+  const lower = stage.toLowerCase();
+  if (isWon === true || lower === "won") return "#10b981"; // emerald-500
+  if (isWon === false && lower === "lost") return "#f43f5e"; // rose-500
+  const idx = lower in STAGE_COLOR_OVERRIDES
+    ? STAGE_COLOR_OVERRIDES[lower]
+    : hashToIndex(lower, STAGE_PALETTE.length);
+  return STAGE_PALETTE[idx];
+}
+
 function stageBadge(stage: string | null, isWon: boolean | null) {
   if (!stage) return <span className="text-muted-foreground text-xs">—</span>;
   const lower = stage.toLowerCase();
 
-  // Won / Lost keep their semantic green/red treatment.
+  // Won / Lost keep their semantic green/red treatment — pass/fail meaning,
+  // not brand identity, so these stay untouched.
   if (isWon === true || lower === "won") {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border tracking-wide bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 ring-1 ring-emerald-500/10">
@@ -95,15 +127,15 @@ function stageBadge(stage: string | null, isWon: boolean | null) {
     );
   }
 
-  // Open-pipeline stages — distinct color per stage name.
-  const idx = lower in STAGE_COLOR_OVERRIDES
-    ? STAGE_COLOR_OVERRIDES[lower]
-    : hashToIndex(lower, STAGE_PALETTE.length);
-  const c = STAGE_PALETTE[idx];
+  // Open-pipeline stages — distinct brand color per stage name.
+  const color = getStageColor(stage, isWon);
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border tracking-wide ring-1 ring-inset ring-black/[0.02] dark:ring-white/[0.04] ${c.bg} ${c.text} ${c.border}`}>
-      <span className={`size-1.5 rounded-full ${c.dot}`} />
+    <span
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border tracking-wide ring-1 ring-inset ring-black/[0.02] dark:ring-white/[0.04]"
+      style={{ backgroundColor: `${color}1a`, color, borderColor: `${color}33` }}
+    >
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
       {stage}
     </span>
   );
@@ -116,7 +148,7 @@ type SortDir = "asc" | "desc";
 // ── Sort header cell ──────────────────────────────────────────────────────────
 
 function Th({
-  label, sortKey, current, dir, onSort, align = "left", icon: Icon,
+  label, sortKey, current, dir, onSort, align = "left", icon: Icon, iconColor,
 }: {
   label: string;
   sortKey: SortKey;
@@ -125,6 +157,7 @@ function Th({
   onSort: (k: SortKey) => void;
   align?: "left" | "right";
   icon?: React.ElementType;
+  iconColor?: string;
 }) {
   const active = current === sortKey;
   const SortIcon = active ? (dir === "asc" ? ChevronUp : ChevronDown) : ChevronsUpDown;
@@ -136,7 +169,7 @@ function Th({
       onClick={() => onSort(sortKey)}
     >
       <span className={`inline-flex items-center gap-1.5 ${align === "right" ? "flex-row-reverse" : ""}`}>
-        {Icon && <Icon className="size-3 opacity-50" />}
+        {Icon && <Icon className="size-3" style={{ color: iconColor, opacity: iconColor ? 0.75 : 0.5 }} />}
         {label}
         <SortIcon className={`size-3 transition-colors ${active ? "text-primary" : "opacity-30"}`} />
       </span>
@@ -384,7 +417,7 @@ function DealsTable({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center gap-3 py-24 text-muted-foreground">
-        <Loader2 className="size-5 animate-spin" />
+        <Loader2 className="size-5 animate-spin" style={{ color: BRAND.blue }} />
         <span className="text-sm">Loading deals…</span>
       </div>
     );
@@ -402,8 +435,8 @@ function DealsTable({
   if (visible.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 py-24 text-muted-foreground">
-        <div className="size-12 rounded-full bg-muted grid place-items-center mb-1">
-          <Inbox className="size-5 opacity-50" />
+        <div className="size-12 rounded-full grid place-items-center mb-1" style={{ backgroundColor: `${BRAND.blue}1a` }}>
+          <Inbox className="size-5" style={{ color: BRAND.blue }} />
         </div>
         <p className="text-sm">{emptyLabel}</p>
       </div>
@@ -416,20 +449,22 @@ function DealsTable({
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-muted/40 sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-muted/60">
             <tr>
-              <Th label="Company" icon={Building2}    sortKey="company_name" current={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Agent"   icon={Users}        sortKey="agent_name"   current={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Plan"    icon={Tag}          sortKey="plan_name"    current={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Stage"   icon={MapPin}       sortKey="stage_name"   current={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Engage"  icon={Calendar}     sortKey="engage_date"  current={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Close"   icon={CalendarDays} sortKey="close_date"   current={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Value"   icon={DollarSign}   sortKey="close_value"  current={sortKey} dir={sortDir} onSort={toggleSort} align="right" />
+              <Th label="Company" icon={Building2}    iconColor={BRAND.blue}   sortKey="company_name" current={sortKey} dir={sortDir} onSort={toggleSort} />
+              <Th label="Agent"   icon={Users}        iconColor={BRAND.purple} sortKey="agent_name"   current={sortKey} dir={sortDir} onSort={toggleSort} />
+              <Th label="Plan"    icon={Tag}          iconColor={BRAND.teal}   sortKey="plan_name"    current={sortKey} dir={sortDir} onSort={toggleSort} />
+              <Th label="Stage"   icon={MapPin}       iconColor={BRAND.orange} sortKey="stage_name"   current={sortKey} dir={sortDir} onSort={toggleSort} />
+              <Th label="Engage"  icon={Calendar}     iconColor={BRAND.coral}  sortKey="engage_date"  current={sortKey} dir={sortDir} onSort={toggleSort} />
+              <Th label="Close"   icon={CalendarDays} iconColor={BRAND.navy}   sortKey="close_date"   current={sortKey} dir={sortDir} onSort={toggleSort} />
+              <Th label="Value"   icon={DollarSign}   iconColor={BRAND.teal}   sortKey="close_value"  current={sortKey} dir={sortDir} onSort={toggleSort} align="right" />
               <th className="px-3 py-3 w-14" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {paginated.map((deal) => (
               <tr key={deal.id} className="group hover:bg-muted/30 transition-colors">
-                <td className="px-4 py-3.5 font-medium text-foreground whitespace-nowrap">{deal.company_name ?? "—"}</td>
+                <td className="px-4 py-3.5 font-medium text-foreground whitespace-nowrap">
+                  {deal.company_name ?? "—"}
+                </td>
                 <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">{deal.agent_name ?? "—"}</td>
                 <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">{deal.plan_name ?? "—"}</td>
                 <td className="px-4 py-3.5 whitespace-nowrap">{stageBadge(deal.stage_name, deal.is_won)}</td>
@@ -581,49 +616,55 @@ function DealsListPage() {
           />
           <Link
             to="/deals/create"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md hover:opacity-90 transition-all duration-200 shrink-0"
+            style={{ background: `linear-gradient(90deg, ${BRAND.blue}, ${BRAND.purple})` }}
           >
             <Plus className="w-4 h-4" />
             New Deal
           </Link>
         </div>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 border-b border-border">
-          <button
-            onClick={() => setTab("open")}
-            className={`relative inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors ${
-              tab === "open"
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <CircleDot className="size-3.5" />
-            Open
-            <span className="ml-1 text-xs text-muted-foreground tabular-nums">
-              {openQuery.data ? `(${openQuery.data.length})` : ""}
-            </span>
-            {tab === "open" && (
-              <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-primary rounded-full" />
-            )}
-          </button>
-          <button
-            onClick={() => setTab("closed")}
-            className={`relative inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors ${
-              tab === "closed"
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <CheckCircle2 className="size-3.5" />
-            Closed
-            <span className="ml-1 text-xs text-muted-foreground tabular-nums">
-              {closedQuery.data ? `(${closedQuery.data.length})` : ""}
-            </span>
-            {tab === "closed" && (
-              <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-primary rounded-full" />
-            )}
-          </button>
+        {/* Tabs — Deals Overview link sits on the same row, right-aligned
+            against the tab bar, same pattern as Project Overview on
+            projects/list.tsx */}
+        <div className="flex items-center justify-between border-b border-border">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setTab("open")}
+              className={`relative inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors ${
+                tab === "open" ? "" : "text-muted-foreground hover:text-foreground"
+              }`}
+              style={tab === "open" ? { color: BRAND.blue } : undefined}
+            >
+              <CircleDot className="size-3.5" />
+              Open
+              <span className="ml-1 text-xs text-muted-foreground tabular-nums">
+                {openQuery.data ? `(${openQuery.data.length})` : ""}
+              </span>
+              {tab === "open" && (
+                <span className="absolute left-0 right-0 -bottom-px h-0.5 rounded-full" style={{ backgroundColor: BRAND.blue }} />
+              )}
+            </button>
+            <button
+              onClick={() => setTab("closed")}
+              className={`relative inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors ${
+                tab === "closed" ? "" : "text-muted-foreground hover:text-foreground"
+              }`}
+              style={tab === "closed" ? { color: BRAND.teal } : undefined}
+            >
+              <CheckCircle2 className="size-3.5" />
+              Closed
+              <span className="ml-1 text-xs text-muted-foreground tabular-nums">
+                {closedQuery.data ? `(${closedQuery.data.length})` : ""}
+              </span>
+              {tab === "closed" && (
+                <span className="absolute left-0 right-0 -bottom-px h-0.5 rounded-full" style={{ backgroundColor: BRAND.teal }} />
+              )}
+            </button>
+          </div>
+          <Link to="/deals" className="inline-flex items-center gap-1.5 pb-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0">
+            <Home className="size-3.5" /> Dashboard
+          </Link>
         </div>
 
         {/* Filter bar */}
@@ -638,7 +679,7 @@ function DealsListPage() {
             />
           </div>
           <div className="relative w-full sm:w-48">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none z-10" />
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none z-10" style={{ color: BRAND.orange }} />
             <Select
               value={filters.stage_name ?? "__all__"}
               onValueChange={(v) => setFilters((f) => ({ ...f, stage_name: v === "__all__" ? undefined : v }))}
@@ -655,7 +696,7 @@ function DealsListPage() {
             </Select>
           </div>
           <div className="relative w-full sm:w-48">
-            <Users className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none z-10" />
+            <Users className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none z-10" style={{ color: BRAND.purple }} />
             <Select
               value={filters.agent_name ?? "__all__"}
               onValueChange={(v) => setFilters((f) => ({ ...f, agent_name: v === "__all__" ? undefined : v }))}
@@ -698,13 +739,15 @@ function DealsListPage() {
           />
         </div>
 
-        <div className="flex items-start gap-2 text-xs text-muted-foreground">
-          <XCircle className="size-3.5 mt-0.5 shrink-0" />
-          <p>
+        <div className="flex items-start gap-3 rounded-xl border p-4" style={{ backgroundColor: `${BRAND.blue}0d`, borderColor: `${BRAND.blue}33` }}>
+          <div className="size-7 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: `${BRAND.blue}1a` }}>
+            <XCircle className="size-3.5" style={{ color: BRAND.blue }} />
+          </div>
+          <p className="text-xs leading-relaxed" style={{ color: BRAND.blue }}>
             Open deals can have their stage, close value, and close date edited, or be permanently
             deleted. Closed deals (Won/Lost) can only have their close value or close date
             corrected — agent, company, plan, and stage are not editable here. New deals start as{" "}
-            <Link to="/deals/create" className="text-primary hover:underline">pending</Link>{" "}
+            <Link to="/deals/create" className="font-semibold underline underline-offset-2 hover:opacity-80">pending</Link>{" "}
             in the staging queue until Talend loads them into the warehouse.
           </p>
         </div>

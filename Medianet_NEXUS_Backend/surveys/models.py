@@ -20,12 +20,23 @@ import uuid
 
 
 class Industry(models.TextChoices):
-    BANKING_FINANCE = "banking_finance", "Banking & Finance"
-    CONSULTING = "consulting", "Consulting & Audit"
-    AGRO_FOOD = "agro_food", "Agro-food"
-    EDUCATION = "education", "Education & Research"
+    """
+    Matches the DW's real Dim_Company.Industry values exactly (curated to
+    the industries with real client data right now — expand this list as
+    more industries get dedicated question sets). OTHER is the fallback
+    for any company whose industry isn't in this curated set yet.
+    """
+    MANUFACTURING = "manufacturing", "Manufacturing"
+    SERVICES = "services", "Services"
+    TOURISM = "tourism", "Tourism"
+    FOOD_BEVERAGE = "food_beverage", "Food & Beverage"
+    NGO_DEVELOPMENT = "ngo_development", "NGO & Development Organization"
+    BANKING = "banking", "Banking"
+    EDUCATION = "education", "Education"
+    ADVERTISING_MARKETING = "advertising_marketing", "Advertising & Marketing"
+    STAFFING_RECRUITMENT = "staffing_recruitment", "Staffing & Recruitment"
     TELECOM = "telecom", "Telecom"
-    RETAIL = "retail", "Retail & Distribution"
+    POSTAL_SERVICES = "postal_services", "Postal Services"
     OTHER = "other", "Other / Generic"
 
 
@@ -54,6 +65,18 @@ class SurveyTemplate(models.Model):
         help_text="Fallback template used when no industry/service match is found. Only one should be active at a time.",
     )
     is_active = models.BooleanField(default=True)
+    is_prepared_draft = models.BooleanField(
+        default=False,
+        help_text="True for the auto-assembled per-company draft created by "
+                  "prepare_survey_for_company() — hidden from the main template "
+                  "management list, shown only in the Prepare Survey review step.",
+    )
+    prepared_for_code_company = models.CharField(
+        max_length=50, null=True, blank=True, unique=True, db_index=True,
+        help_text="Set only on prepared-draft templates — one standing draft per "
+                  "company, reused until explicitly regenerated. NULL for every "
+                  "normal (manually managed) template.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -68,7 +91,8 @@ class QuestionType(models.TextChoices):
     RATING_5 = "rating_5", "Rating (1–5)"
     RATING_10 = "rating_10", "Rating (1–10)"
     NPS = "nps", "NPS (0–10, would you recommend us)"
-    MULTIPLE_CHOICE = "multiple_choice", "Multiple choice"
+    MULTIPLE_CHOICE = "multiple_choice", "Multiple choice (single-select)"
+    MULTI_SELECT = "multi_select", "Multiple choice (multi-select)"
     YES_NO = "yes_no", "Yes / No"
     OPEN_TEXT = "open_text", "Open text"
 
@@ -82,6 +106,17 @@ class ScoringDimension(models.TextChoices):
     LOYALTY = "loyalty", "Loyalty"
     UPSELL_READINESS = "upsell_readiness", "Upsell readiness"
     NONE = "none", "Not scored (context only)"
+
+
+class QuestionOrigin(models.TextChoices):
+    """Where a question in a PREPARED DRAFT came from — lets prepare_survey_for_company()
+    tell apart what was cloned from the default/industry templates vs. what the AI
+    generated fresh, without affecting questions on the reusable templates themselves
+    (those are always origin=MANUAL, since they're hand-authored)."""
+    MANUAL = "manual", "Manually authored"
+    DEFAULT = "default", "Copied from default template"
+    INDUSTRY = "industry", "Copied from industry template"
+    AI_GENERATED = "ai_generated", "AI-generated from subscription history"
 
 
 class SurveyQuestion(models.Model):
@@ -104,6 +139,25 @@ class SurveyQuestion(models.Model):
             "wipe every past answer). Inactive questions are excluded from new "
             "sends and public fills but stay visible in the template editor."
         ),
+    )
+    origin = models.CharField(max_length=20, choices=QuestionOrigin.choices, default=QuestionOrigin.MANUAL)
+
+    # ── Conditional branching (used by the two upsell follow-up questions) ──
+    depends_on_question = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="dependents",
+        help_text="If set, this question is only shown when depends_on_question's numeric "
+                  "answer is >= show_if_min_value.",
+    )
+    show_if_min_value = models.FloatField(
+        null=True, blank=True,
+        help_text="Threshold for depends_on_question's answer (e.g. 4 means 'only show if "
+                  "rated 4 or 5 stars'). Ignored if depends_on_question is not set.",
+    )
+    excludes_selected_from = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="excluded_by",
+        help_text="If set, whatever the client selected as the answer to this referenced "
+                  "question is removed from THIS question's option list at fill-time — "
+                  "e.g. 'services you use' feeding into 'services to explore next'.",
     )
 
     class Meta:
@@ -160,6 +214,12 @@ class Survey(models.Model):
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
     status = models.CharField(max_length=20, choices=SurveyStatus.choices, default=SurveyStatus.SENT)
     sent_at = models.DateTimeField(null=True, blank=True)
+    sent_by_email = models.EmailField(
+        blank=True, default="",
+        help_text="Email of whoever was logged in when this survey was sent — captured "
+                  "from the frontend since Django itself has no auth layer. Used as the "
+                  "default recipient for the AI next-steps report.",
+    )
     completed_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -228,12 +288,30 @@ class SurveyVerdict(models.Model):
         default=list, blank=True,
         help_text='List of {"label": str, "category": "retention|upsell|content|outreach|support"}.',
     )
+    next_steps_report = models.TextField(
+        blank=True, default="",
+        help_text="Longer, narrative next-steps report — a separate, more thorough "
+                  "LLM call than the short summary above. Emailed automatically to "
+                  "REPORT_RECIPIENT_EMAILS once generated.",
+    )
 
     model_used = models.CharField(max_length=100, blank=True, default="")
     error_message = models.TextField(blank=True, default="")
     generation_count = models.PositiveIntegerField(default=0)
     generated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # ── Next-steps report email tracking ────────────────────────────────
+    report_sent_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Set when the next-steps PDF report was successfully emailed. "
+                  "NULL if it was never sent, or the most recent attempt failed.",
+    )
+    report_send_error = models.TextField(
+        blank=True, default="",
+        help_text="Populated if the most recent report-email attempt failed "
+                  "(e.g. no recipient available). Cleared on a successful send.",
+    )
 
     def __str__(self):
         return f"Verdict(survey={self.survey_id}) [{self.status}]"
@@ -287,3 +365,31 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"[{self.event_type}] {self.title}"
+
+
+class SurveyCleanupRun(models.Model):
+    """
+    One row per execution of `python manage.py cleanup_old_surveys` —
+    whether triggered by Task Scheduler/cron or run manually, and
+    whether it was a real run or --dry-run. Exists so the quarterly
+    unanswered-survey retention policy is demonstrable/auditable rather
+    than an invisible background script — e.g. for a PFE defense, or
+    just to sanity-check the scheduled job is actually firing.
+
+    `details` is a capped JSON snapshot (id/company/template/status/
+    created_at) of the surveys the run targeted, so a run can be
+    inspected after the fact even though the surveys themselves are
+    gone by then for a real (non-dry-run) execution.
+    """
+    ran_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    cutoff_days = models.PositiveIntegerField()
+    was_dry_run = models.BooleanField(default=False)
+    deleted_count = models.PositiveIntegerField(default=0)
+    details = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ["-ran_at"]
+
+    def __str__(self):
+        kind = "DRY RUN" if self.was_dry_run else "DELETED"
+        return f"[{kind}] {self.ran_at:%Y-%m-%d %H:%M} — {self.deleted_count} survey(s)"

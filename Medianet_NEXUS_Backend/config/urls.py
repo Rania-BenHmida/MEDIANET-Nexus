@@ -23,4 +23,8 @@ urlpatterns = [
     path("api/genbi/", include("Gen_BI.urls")),
     path("api/customers/", include("customers.urls")),
     path("api/surveys/", include("surveys.urls")),
+    path("api/insights/", include("insights.urls")),
+    path("api/talend/", include("talend.urls")),
+    path("api/dashboard/", include("dashboard.urls")),
+    path("api/accounts/", include("accounts.urls")),
 ]

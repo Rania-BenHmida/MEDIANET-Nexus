@@ -1,17 +1,20 @@
 // surveys.ts — add next to customers.ts / deals.ts, then re-export surveysApi
 // from wherever customersApi / dealsApi are barrel-exported today.
 
-import { get, post, patch, del } from "./client";
+import { get, post, patch, del, API_BASE } from "./client";
 
 export type QuestionType =
   | "rating_5"
   | "rating_10"
   | "nps"
   | "multiple_choice"
+  | "multi_select"
   | "yes_no"
   | "open_text";
 
 export type ScoringDimension = "satisfaction" | "loyalty" | "upsell_readiness" | "none";
+
+export type QuestionOrigin = "manual" | "default" | "industry" | "ai_generated";
 
 export type SurveyQuestion = {
   id: number;
@@ -24,6 +27,10 @@ export type SurveyQuestion = {
   weight: number;
   isRequired: boolean;
   isActive: boolean;
+  origin: QuestionOrigin;
+  dependsOnQuestion: number | null;
+  showIfMinValue: number | null;
+  excludesSelectedFrom: number | null;
 };
 
 export type SurveyTemplateSummary = {
@@ -36,6 +43,8 @@ export type SurveyTemplateSummary = {
   description: string;
   isDefault: boolean;
   isActive: boolean;
+  isPreparedDraft: boolean;
+  preparedForCodeCompany: string | null;
   questionCount: number;
   createdAt: string | null;
 };
@@ -91,10 +100,13 @@ export type SurveyVerdict = {
   summary: string;
   riskFlags: string[];
   recommendedActions: RecommendedAction[];
+  nextStepsReport: string;
   modelUsed: string;
   errorMessage: string;
   generationCount: number;
   generatedAt: string | null;
+  reportSentAt: string | null;
+  reportSendError: string;
 };
 
 export type SentSurveyStatus = "sent" | "completed" | "expired";
@@ -113,6 +125,12 @@ export type SentSurvey = {
   completedAt: string | null;
   expiresAt: string | null;
   verdict: SurveyVerdict | null;
+};
+
+export type CompanyWithSubs = {
+  codeCompany: string;
+  companyName: string;
+  dwIndustry: string | null;
 };
 
 export type CompanyFeedbackOverview = {
@@ -152,8 +170,19 @@ export const surveysApi = {
     const suffix = serviceCategory ? `?service_category=${serviceCategory}` : "";
     return get<ResolvedTemplate>(`/surveys/templates/resolve/${codeCompany}/${suffix}`);
   },
+  listCompaniesWithSubs: () =>
+    get<CompanyWithSubs[]>("/surveys/companies-with-subs/"),
+  prepareSurvey: (codeCompany: string, regenerate = false) =>
+    post<SurveyTemplateDetail>(`/surveys/prepare/${codeCompany}/`, { regenerate }),
+  prepareAiQuestions: (codeCompany: string) =>
+    post<SurveyTemplateDetail>(`/surveys/prepare/${codeCompany}/ai-questions/`, {}),
   deleteQuestion: (questionId: number) =>
     del<DeleteQuestionResult>(`/surveys/questions/${questionId}/`),
+  updateQuestion: (questionId: number, payload: Partial<{
+    text: string; question_type: QuestionType; options: string[] | null;
+    scoring_dimension: ScoringDimension; weight: number; is_required: boolean; is_active: boolean;
+  }>) =>
+    patch<SurveyQuestion>(`/surveys/questions/${questionId}/`, payload),
 
   listContacts: (codeCompany: string) =>
     get<ClientContact[]>(`/surveys/contacts/?code_company=${codeCompany}`),
@@ -164,7 +193,7 @@ export const surveysApi = {
   deleteContact: (contactId: number) =>
     del<void>(`/surveys/contacts/${contactId}/`),
 
-  sendSurvey: (payload: { template_id: number; contact_id: number; expires_in_days?: number }) =>
+  sendSurvey: (payload: { template_id: number; contact_id: number; expires_in_days?: number; sent_by_email?: string }) =>
     post<SentSurvey>("/surveys/send/", payload),
   listCompanySurveys: (codeCompany: string) =>
     get<SentSurvey[]>(`/surveys/company/${codeCompany}/surveys/`),
@@ -172,8 +201,14 @@ export const surveysApi = {
     get<CompanyFeedbackOverview[]>("/surveys/overview/"),
   getSurveyDetail: (surveyId: number) =>
     get<SurveyFullDetail>(`/surveys/${surveyId}/`),
-  runSurveyVerdict: (surveyId: number) =>
-    post<SurveyVerdict>(`/surveys/${surveyId}/verdict/`, {}),
+  runSurveyVerdict: (surveyId: number, recipientEmail?: string) =>
+    post<SurveyVerdict>(`/surveys/${surveyId}/verdict/`, { recipient_email: recipientEmail }),
+  deleteSurvey: (surveyId: number) =>
+    del<void>(`/surveys/${surveyId}/`),
+  // Not a JSON call — this is a direct link the browser downloads, so it
+  // doesn't go through the get<T> helper. Use as an <a href> or
+  // window.open() target, not with await.
+  reportDownloadUrl: (surveyId: number) => `${API_BASE}/surveys/${surveyId}/report/`,
 
   getPublicSurvey: (token: string) =>
     get<PublicSurvey>(`/surveys/public/${token}/`),
@@ -195,6 +230,8 @@ export const surveysApi = {
     del<void>(`/surveys/notifications/${id}/`),
   clearAllNotifications: () =>
     del<{ deleted: number }>("/surveys/notifications/clear-all/"),
+  listCleanupRuns: (limit = 50) =>
+    get<SurveyCleanupRun[]>(`/surveys/cleanup-runs/?limit=${limit}`),
 };
 
 export type PublicSurveyQuestion = {
@@ -204,10 +241,14 @@ export type PublicSurveyQuestion = {
   questionType: QuestionType;
   options: string[] | null;
   isRequired: boolean;
+  dependsOnQuestion: number | null;
+  showIfMinValue: number | null;
+  excludesSelectedFrom: number | null;
 };
 
 export type PublicSurvey = {
   templateName: string;
+  companyName: string;
   status: SentSurveyStatus;
   alreadyCompleted?: boolean;
   expired?: boolean;
@@ -224,7 +265,9 @@ export type NotificationEventType =
   | "deal_won"
   | "deal_lost"
   | "project_created"
-  | "task_created";
+  | "task_created"
+  | "talend_refresh_success"
+  | "talend_refresh_failed";
 
 export type SurveyNotification = {
   id: number;
@@ -241,4 +284,21 @@ export type SurveyNotification = {
 export type NotificationsResponse = {
   items: SurveyNotification[];
   unreadCount: number;
+};
+
+export type SurveyCleanupSnapshotRow = {
+  id: number;
+  codeCompany: string;
+  template: string;
+  status: SentSurveyStatus;
+  createdAt: string;
+};
+
+export type SurveyCleanupRun = {
+  id: number;
+  ranAt: string;
+  cutoffDays: number;
+  wasDryRun: boolean;
+  deletedCount: number;
+  details: SurveyCleanupSnapshotRow[];
 };
